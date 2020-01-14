@@ -33,9 +33,9 @@ This should launch a web browser with the Shiny app.
 ### Credits
 
 There are several Shiny apps for Volcano plots that have served as a source of inspiration:
-[VolcanoR](https://github.com/vovalive/volcanoR)  
-[Volcanoshiny](https://github.com/hardingnj/volcanoshiny)
-[VolcanoPlot_shiny_app](https://github.com/stemicha/VolcanoPlot_shiny_app)
+-[VolcanoR](https://github.com/vovalive/volcanoR)  
+-[Volcanoshiny](https://github.com/hardingnj/volcanoshiny)
+-[VolcanoPlot_shiny_app](https://github.com/stemicha/VolcanoPlot_shiny_app)
 
 VolcaNoseR is created and maintained by Joachim Goedhart ([@joachimgoedhart](https://twitter.com/joachimgoedhart))
 
@@ -43,4 +43,9 @@ VolcaNoseR is created and maintained by Joachim Goedhart ([@joachimgoedhart](htt
 
 Standard output generated with the example data:
 
-![alt text](https://github.com/JoachimGoedhart/PlotTwist/blob/master/Timeseries_example1.png "Output")
+![alt text](https://github.com/JoachimGoedhart/VolcaNoseR/blob/master/VolcaNoseR_example1.png "Output")
+
+Output with user selected annotation of data:
+
+![alt text](https://github.com/JoachimGoedhart/VolcaNoseR/blob/master/VolcaNoseR_example2.png "Output")
+
