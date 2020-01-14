@@ -21,7 +21,7 @@
 
 # To implement:
 # Color selection
-# Highlight user-selected gene
+
 
 
 library(shiny)
@@ -49,10 +49,10 @@ ui <- fluidPage(
       sidebarPanel(width=3,
           conditionalPanel(
             condition = "input.tabs=='Plot'",
-            h3('Select X & Y variables'),
+            h4('Select X & Y variables'),
 
-              selectInput("x_var", label = "Variable for x-axis (Typically log fold change)", choices = "-"),
-              selectInput("y_var", label = "Variable for y-axis (Typically -log significance)", choices = "-"),
+              selectInput("x_var", label = "X-axis; typically log fold change)", choices = "-"),
+              selectInput("y_var", label = "Y-axis; typically -log significance)", choices = "-"),
               selectInput("g_var", label = "Select column with names", choices = "-"),
             
             # h3("Select Geom(etry)"),
@@ -60,7 +60,7 @@ ui <- fluidPage(
             # conditionalPanel(condition = "input.geom=='geom_line'",  
             # selectInput('grouping', label="Group", choices = list("-"="-"), selected = "-")
             # ),
-            h3("Modify the appearance"),
+            h4("Modify the plot"),
 
             sliderInput("pointSize", "Size of the datapoints", 0, 10, 4),  
             
@@ -82,14 +82,28 @@ ui <- fluidPage(
                         max = 5,
                         step=0.1,
                         value = 2),
+            
+            h4("Annotation of candidates"),
             numericInput("top_x", "Number of top candidates:", value = "10"),
             
             checkboxInput(inputId = "show_table",
-                          label = "Show candidates in table",
+                          label = "Show top candidates in table",
                           value = TRUE),
             checkboxInput(inputId = "show_labels",
-                          label = "Label candidates in plot",
+                          label = "Label top candidates in plot",
                           value = TRUE),
+            checkboxInput(inputId = "user_selected",
+                          label = "User defined candidates",
+                          value = FALSE),
+            
+            
+            conditionalPanel(condition = "input.user_selected == true",
+                             textInput("user_gene_list", "Add labels for:", value = "DYSF,LAMC3"), 
+                             
+
+                          NULL   
+            ),
+            
 
             h4("Scaling"),
             
@@ -110,6 +124,9 @@ ui <- fluidPage(
               condition = "input.change_scale == true",
               textInput("range_y", "Range y-axis (min,max)", value = "")
             ),
+            
+            
+
             
               NULL),
           
@@ -304,11 +321,7 @@ output$data_uploaded <- renderDataTable(
   
   df_user <- reactive({
     
-    
-    
-    usr_selection <- c("DYSF","LAMC3")
-    
-    
+    usr_selection <- strsplit(input$user_gene_list,",")[[1]]
     
     df <- as.data.frame(df_filtered())
 
@@ -420,28 +433,34 @@ output$coolplot <- renderPlot(width = 800, height = 600,{
       #remove gridlines (if selected
       theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
       
-      
-      
-      geom_point(data=df_user(), aes(x=`Fold change`,y=`Significance`), color="black", size=(input$pointSize+1))+
-      geom_text_repel(
-        data = df_user(),
-        aes(label = Name),
-        size = 6,
-        color="black",
-        box.padding = unit(0.35, "lines"),
-        point.padding = unit(0.1, "lines"))+
-      
-      
       NULL
 
+ ########## User defined highlighting     
+    if (input$user_selected == TRUE) {
+      p <-  p + geom_point(data=df_user(), aes(x=`Fold change`,y=`Significance`), shape=1,color="black", size=(input$pointSize+1))+
+        geom_text_repel(
+          data = df_user(),
+          aes(label = Name),
+          size = 6,
+          color="black",
+          nudge_x = 0.2,
+          nudge_y=0.2,
+          box.padding = unit(0.9, "lines"),
+          point.padding = unit(.3+input$pointSize*0.1, "lines"))
       
+    }
+    
+    
       if (input$show_labels == TRUE) {
         p <- p + geom_text_repel(
             data = df_top(),
             aes(label = Name),
             size = 6,
+            nudge_x = 0.2,
+            nudge_y=-0.2,
+            check_overlap = TRUE,
             box.padding = unit(0.35, "lines"),
-            point.padding = unit(0.3, "lines")
+            point.padding = unit(0.3+input$pointSize*0.1, "lines")
           )
         
       }
