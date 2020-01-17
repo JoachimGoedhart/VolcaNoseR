@@ -21,6 +21,8 @@
 
 # To implement:
 # Color selection
+# Add PlotLy
+# Select genes from table
 
 library(shiny)
 library(ggplot2)
@@ -49,8 +51,8 @@ ui <- fluidPage(
             condition = "input.tabs=='Plot'",
             h4('Select X & Y variables'),
 
-              selectInput("x_var", label = "X-axis; typically log fold change)", choices = "-"),
-              selectInput("y_var", label = "Y-axis; typically -log significance)", choices = "-"),
+              selectInput("x_var", label = "X-axis; typically log fold change", choices = "-"),
+              selectInput("y_var", label = "Y-axis; typically -log p-value", choices = "-"),
               selectInput("g_var", label = "Select column with names", choices = "-"),
             
             # h3("Select Geom(etry)"),
@@ -68,21 +70,13 @@ ui <- fluidPage(
             
 
             # hr(),
-            sliderInput("fc.tr",
-                        "Fold Change threshold:",
-                        min = 0,
-                        max = 5,
-                        step=0.1,
-                        value = 1.5),
-            sliderInput("p.tr",
-                        "-log10 P-value threshold:",
-                        min = 0,
-                        max = 5,
-                        step=0.1,
-                        value = 2),
+            sliderInput("fc_cutoff", "Fold Change threshold:", 0, 5, step=0.1, value = 1.5),
+            sliderInput("p_cutoff", "Significance threshold:", 0, 5, step=0.1, value = 2),
             
             h4("Annotation of candidates"),
             numericInput("top_x", "Number of top candidates:", value = "10"),
+            selectInput("direction", label=NULL, choices = list("All"="all", "Only Significant"="significant","Only Increased"="increased", "Only Decreased"="decreased"), selected ="all"),
+            
             
             checkboxInput(inputId = "show_table",
                           label = "Show top candidates in table",
@@ -96,7 +90,7 @@ ui <- fluidPage(
             
             
             conditionalPanel(condition = "input.user_selected == true",
-                             textInput("user_gene_list", "Add labels for:", value = "DYSF,LAMC3"), 
+                             textInput("user_gene_list", "Add labels for (case sensitive)", value = "DYSF,LAMC3"), 
                              
 
                           NULL   
@@ -122,8 +116,9 @@ ui <- fluidPage(
               condition = "input.change_scale == true",
               textInput("range_y", "Range y-axis (min,max)", value = "")
             ),
-            
-            
+            numericInput("plot_height", "Plot height (# pixels): ", value = 600),
+            numericInput("plot_width", "Plot width (# pixels):", value = 800),
+
 
             
               NULL),
@@ -168,10 +163,6 @@ ui <- fluidPage(
 
                 ),
               hr(),
-              # selectInput("filter_column", "Filter based on this parameter:", choices = "-", selected = "-"),
-              # selectInput("remove_these_conditions", "Deselect these conditions:", "", multiple = TRUE),
-              
-              
 
               NULL
               ),
@@ -192,12 +183,15 @@ ui <- fluidPage(
       mainPanel(
         tabsetPanel(id="tabs",
                     tabPanel("Data", h4("Data as provided"),dataTableOutput("data_uploaded")),
-                    tabPanel("Plot",h3("Volcano Plot",br(),br()
-
-                                       
+                    tabPanel("Plot",h3("Volcano Plot"
                                        ),
+                             downloadButton("downloadPlotPDF", "Download pdf-file"),
+                             #                          downloadButton("downloadPlotSVG", "Download svg-file"),
+                             downloadButton("downloadPlotPNG", "Download png-file"),
 
-                             plotOutput("coolplot",height = '610px',hover = hoverOpts("plot_hover", delay = 10, delayType = "debounce")),uiOutput("hover_info"),
+                             plotOutput("coolplot",
+                                        height = 'auto',
+                                        hover = hoverOpts("plot_hover", delay = 10, delayType = "debounce")),uiOutput("hover_info"),
                              
                              conditionalPanel(
                                condition = "input.show_table == true",
@@ -205,7 +199,7 @@ ui <- fluidPage(
                              withSpinner(tableOutput('toptable'))
 
                               ),
- #                   tabPanel("iPlot", h4("iPlot"), plotlyOutput("out_plotly")),
+                    # tabPanel("iPlot", h4("iPlot"), plotlyOutput("out_plotly")),
 
                     tabPanel("About", includeHTML("about.html"))
                     )
@@ -310,6 +304,17 @@ output$data_uploaded <- renderDataTable(
         
         df <- df %>% mutate(`Manhattan distance` = abs(`Significance`)+abs(`Fold change`)) %>% arrange(desc(`Manhattan distance`))
         
+        if (input$direction =="increased") {
+          df <- df %>% filter(Change=="Increased")
+          
+        } else if (input$direction =="decreased") {
+          df <- df %>% filter(Change=="Decreased")
+          
+        } else if (input$direction =="significant") {
+          df <- df %>% filter(Change!="Unchanged")
+          
+        }
+        
         df_out <- df %>% top_n(input$top_x,`Manhattan distance`) %>% select(Name, Change, `Fold change`,`Significance`,`Manhattan distance`)
         
         observe({print(df_out)})
@@ -349,8 +354,8 @@ output$data_uploaded <- renderDataTable(
       
     }
     
-    foldchange_tr=input$fc.tr
-    pvalue_tr=input$p.tr
+    foldchange_tr=input$fc_cutoff
+    pvalue_tr=input$p_cutoff
 
 ##    koos <- koos %>%mutate(Change = ifelse((foldchange >= foldchange_tr && pvalue >= pvalue_tr ),"Increased", ifelse(foldchange<=-foldchange_tr , "Decreased", "Unchanged")))
 
@@ -380,10 +385,102 @@ output$toptable <- renderTable({
     
   })
 
-  ##### Render the plot ############
+  
+plot_data <- reactive({
+    
+    ############## Adjust X-scaling if necessary ##########
+    
+    #Adjust scale if range for x (min,max) is specified
+    if (input$range_x != "" &&  input$change_scale == TRUE) {
+      rng_x <- as.numeric(strsplit(input$range_x,",")[[1]])
+      observe({ print(rng_x) })
+    } else if (input$range_x == "" ||  input$change_scale == FALSE) {
+      
+      rng_x <- c(NULL,NULL)
+    }
+    
+    
+    ############## Adjust Y-scaling if necessary ##########
+    
+    #Adjust scale if range for y (min,max) is specified
+    if (input$range_y != "" &&  input$change_scale == TRUE) {
+      rng_y <- as.numeric(strsplit(input$range_y,",")[[1]])
+    } else if (input$range_y == "" ||  input$change_scale == FALSE) {
+      
+      rng_y <- c(NULL,NULL)
+    }
+    
+    df <- as.data.frame(df_filtered())
+    #Convert 'Change' to a factor to keep this order, necessary for getting the colors right
+    df$Change <- factor(df$Change, levels=c("Unchanged","Increased","Decreased"))
+    
+    p <-  ggplot(data = df) +
+      aes(x=`Fold change`) +
+      aes(y=`Significance`) +
+      geom_point(alpha = input$alphaInput, size = input$pointSize) +
+      
+      #Indicate cut-offs with dashed lines
+      geom_vline(xintercept = input$fc_cutoff, linetype="dashed") +
+      geom_vline(xintercept = -input$fc_cutoff, linetype="dashed") +
+      geom_hline(yintercept = input$p_cutoff, linetype="dashed") +  
+      
+      # This needs to go here (before annotations)
+      theme_light(base_size = 16) +
+      aes(color=Change) + 
+      scale_color_manual(values=c("grey", "red", "blue")) +
+      
+      #remove gridlines (if selected
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+      
+      NULL
+    
+    ########## User defined labeling     
+    if (input$user_selected == TRUE) {
+      p <-  p + geom_point(data=df_user(), aes(x=`Fold change`,y=`Significance`), shape=1,color="black", size=(input$pointSize+1))+
+        geom_text_repel(
+          data = df_user(),
+          aes(label = Name),
+          size = 6,
+          color="black",
+          nudge_x = 0.2,
+          nudge_y=0.2,
+          box.padding = unit(0.9, "lines"),
+          point.padding = unit(.3+input$pointSize*0.1, "lines"),show_guide=F
+          )
+      
+    }
+    
+    ########## Top candidates labeling 
+    if (input$show_labels == TRUE) {
+      p <- p + geom_text_repel(
+        data = df_top(),
+        aes(label = Name),
+        size = 6,
+        nudge_x = 0.2,
+        nudge_y=-0.2,
+        check_overlap = TRUE,
+        box.padding = unit(0.35, "lines"),
+        point.padding = unit(0.3+input$pointSize*0.1, "lines"),
+        show_guide=F
+      )
+      
+    }
+    p <- p + coord_cartesian(xlim=c(rng_x[1],rng_x[2]),ylim=c(rng_y[1],rng_y[2]))
+    
+    p
+    
+  })
 
+  
+  
+  
+    ##### Render the plot ############
 
-output$coolplot <- renderPlot(width = 800, height = 600,{
+  ##### Set width and height of the plot area
+  width <- reactive ({ input$plot_width })
+  height <- reactive ({ input$plot_height }) 
+  
+output$coolplot <- renderPlot(width = width, height = height,{
   
   ############## Adjust X-scaling if necessary ##########
   
@@ -407,21 +504,19 @@ output$coolplot <- renderPlot(width = 800, height = 600,{
       rng_y <- c(NULL,NULL)
     }
   
-  observe({print(df_user())})
-    
-
     df <- as.data.frame(df_filtered())
-    
+    #Convert 'Change' to a factor to keep this order, necessary for getting the colors right
     df$Change <- factor(df$Change, levels=c("Unchanged","Increased","Decreased"))
-    
     
     p <-  ggplot(data = df) +
       aes(x=`Fold change`) +
       aes(y=`Significance`) +
       geom_point(alpha = input$alphaInput, size = input$pointSize) +
-      geom_vline(xintercept = input$fc.tr, linetype="dashed") +
-      geom_vline(xintercept = -input$fc.tr, linetype="dashed") +
-      geom_hline(yintercept = input$p.tr, linetype="dashed") +  
+      
+      #Indicate cut-offs with dashed lines
+      geom_vline(xintercept = input$fc_cutoff, linetype="dashed") +
+      geom_vline(xintercept = -input$fc_cutoff, linetype="dashed") +
+      geom_hline(yintercept = input$p_cutoff, linetype="dashed") +  
       
       # This needs to go here (before annotations)
       theme_light(base_size = 16) +
@@ -433,7 +528,7 @@ output$coolplot <- renderPlot(width = 800, height = 600,{
       
       NULL
 
- ########## User defined highlighting     
+ ########## User defined labeling     
     if (input$user_selected == TRUE) {
       p <-  p + geom_point(data=df_user(), aes(x=`Fold change`,y=`Significance`), shape=1,color="black", size=(input$pointSize+1))+
         geom_text_repel(
@@ -444,11 +539,12 @@ output$coolplot <- renderPlot(width = 800, height = 600,{
           nudge_x = 0.2,
           nudge_y=0.2,
           box.padding = unit(0.9, "lines"),
-          point.padding = unit(.3+input$pointSize*0.1, "lines"))
+          point.padding = unit(.3+input$pointSize*0.1, "lines"),
+          show_guide=F)
       
     }
-    
-    
+
+  ########## Top candidates labeling 
       if (input$show_labels == TRUE) {
         p <- p + geom_text_repel(
             data = df_top(),
@@ -458,7 +554,8 @@ output$coolplot <- renderPlot(width = 800, height = 600,{
             nudge_y=-0.2,
             check_overlap = TRUE,
             box.padding = unit(0.35, "lines"),
-            point.padding = unit(0.3+input$pointSize*0.1, "lines")
+            point.padding = unit(0.3+input$pointSize*0.1, "lines"),
+            show_guide=F
           )
         
       }
@@ -467,7 +564,6 @@ output$coolplot <- renderPlot(width = 800, height = 600,{
     p
   })
   
-
 ###### From: https://gitlab.com/snippets/16220 ########
 output$hover_info <- renderUI({
   df <- as.data.frame(df_filtered())
@@ -488,18 +584,18 @@ output$hover_info <- renderUI({
   # create style property fot tooltip
   # background color is set so tooltip is a bit transparent
   # z-index is set so we are sure are tooltip will be on top
-  style <- paste0("position:absolute; z-index:100; background-color: rgba(200, 200, 245, 0.65); ",
-                  "left:", left_px + 1, "px; top:", top_px + 1, "px;")
+  style <- paste0("position:absolute;
+                  padding: 5px;
+                  z-index:100; background-color: rgba(200, 200, 245, 0.65); ",
+                  "left:", left_px + 20, "px; top:", top_px + 32, "px;")
   
   # actual tooltip created as wellPanel
-  observe({print(point)})
   wellPanel(
     style = style,
     p(HTML(paste0("<b> Name: </b>", point$Name, "<br/>",
                   "<b> Fold change: </b>", round(point[1],2), "<br/>",
                   "<b> Significance: </b>", round(point[2],2), "<br/>",
                   # "<b> Number: </b>", rownames(point), "<br/>",
-
                   # top_px,
                   NULL
     )
@@ -507,6 +603,38 @@ output$hover_info <- renderUI({
   )
 })
 
+  
+  ######### DEFINE DOWNLOAD BUTTONS FOR ORDINARY PLOT ###########
+  
+  output$downloadPlotPDF <- downloadHandler(
+    filename <- function() {
+      paste("VolcaNoseR_", Sys.time(), ".pdf", sep = "")
+    },
+    content <- function(file) {
+      pdf(file, width = input$plot_width/72, height = input$plot_height/72)
+      plot(plot_data())
+      
+      dev.off()
+    },
+    contentType = "application/pdf" # MIME type of the image
+  )
+  
+  
+  output$downloadPlotPNG <- downloadHandler(
+    filename <- function() {
+      paste("VolcaNoseR_", Sys.time(), ".png", sep = "")
+    },
+    content <- function(file) {
+      png(file, width = input$plot_width*4, height = input$plot_height*4, res=300)
+      plot(plot_data())
+
+      dev.off()
+    },
+    contentType = "application/png" # MIME type of the image
+  )  
+  
+  
+  
 
 ########### Update count #########
 # Reactively update the client.
