@@ -49,18 +49,14 @@ ui <- fluidPage(
       sidebarPanel(width=3,
           conditionalPanel(
             condition = "input.tabs=='Plot'",
-            h4('Select X & Y variables'),
 
-              selectInput("x_var", label = "X-axis; typically log fold change", choices = "-"),
-              selectInput("y_var", label = "Y-axis; typically -log p-value", choices = "-"),
-              selectInput("g_var", label = "Select column with names", choices = "-"),
             
             # h3("Select Geom(etry)"),
             #   selectInput("geom", label = NULL, choices = list("geom_point"="geom_point", "-"="-")),
             # conditionalPanel(condition = "input.geom=='geom_line'",  
             # selectInput('grouping', label="Group", choices = list("-"="-"), selected = "-")
             # ),
-            h4("Modify the plot"),
+            h4("Aesthetics"),
 
             sliderInput("pointSize", "Size of the datapoints", 0, 10, 4),  
             
@@ -142,9 +138,9 @@ ui <- fluidPage(
                 selected =  1),
               
               conditionalPanel(
-                condition = "input.data_input=='1'",h4('Data source'),p('This data was used in a blog to demonstrate how to generate a volcano plot: https://www.gettinggeneticsdone.com/2014/05/r-volcano-plots-to-visualize-rnaseq-microarray.html')),              
+                condition = "input.data_input=='1'",p('This data was used in a blog to demonstrate how to generate a volcano plot: https://www.gettinggeneticsdone.com/2014/05/r-volcano-plots-to-visualize-rnaseq-microarray.html'),hr()),              
               conditionalPanel(
-                condition = "input.data_input=='2'",h4('Data source'),p('Data of potential interactors of Cdc42. Data from Figure 9A of this paper: https://elifesciences.org/articles/45916')),
+                condition = "input.data_input=='2'",p('Data of potential interactors of Cdc42. Data from Figure 9A of this paper: https://elifesciences.org/articles/45916'),hr()),
               
               
               conditionalPanel(
@@ -162,6 +158,47 @@ ui <- fluidPage(
                     selected = ",")
 
                 ),
+              h4('Select X & Y variables'),
+              
+              selectInput("x_var", label = "X-axis; Effect (fold change)", choices = "-"),
+              selectInput("y_var", label = "Y-axis; Significance (p-value)", choices = "-"),
+              selectInput("g_var", label = "Select column with names", choices = "-"),
+              
+              checkboxInput(inputId = "transform",
+                            label = "Transform the data",
+                            value = FALSE),
+
+              
+              
+              conditionalPanel(condition = "input.transform==true",
+                               
+                               radioButtons(
+                                 "transform_x", "Transform x-axis data:",
+                                 choices =
+                                   list("No" = "No",
+                                        "log2" = "log2",
+                                        "log10" = "log10",
+                                        "-log10" = "minus_log10"),
+                                 selected = "No"),
+                               radioButtons(
+                                 "transform_y", "Transform y-axis data:",
+                                 choices =
+                                   list("No" = "No",
+                                        "log2" = "log2",
+                                        "log10" = "log10",
+                                        "-log10" = "minus_log10"),
+                                 selected = "No")
+                               
+                               
+              ),
+              # downloadButton("downloadData", "Download (transformed) data (csv)"),
+              hr(),
+              
+              
+              
+              
+              
+              
               hr(),
 
               NULL
@@ -289,6 +326,7 @@ output$data_uploaded <- renderDataTable(
     facet_list_factors <- c(".",nms_fact)
     
     updateSelectInput(session, "x_var", choices = varx_list, selected = "log2_FoldChange")
+    updateSelectInput(session, "transform_column", choices = mapping_list_num)
     updateSelectInput(session, "y_var", choices = vary_list, selected = "minus_log10_pvalue")
     # updateSelectInput(session, "map_size", choices = mapping_list_all)
    updateSelectInput(session, "g_var", choices = mapping_list_fact, selected = "Gene")
@@ -344,8 +382,7 @@ output$data_uploaded <- renderDataTable(
     y_choice <- input$y_var
     g_choice <- input$g_var
     
-    
-    
+
     if (g_choice == "-") {
       koos <- df %>% select(`Fold change` = !!x_choice , `Significance` = !!y_choice)
       koos$Name <- " "
@@ -353,6 +390,27 @@ output$data_uploaded <- renderDataTable(
       koos <- df %>% select(`Fold change` = !!x_choice , `Significance` = !!y_choice, Name = input$g_var)
       
     }
+    
+    if (input$transform_x =="log2") {
+      koos <- koos %>% mutate(`Fold change` = log2(`Fold change`))
+    } else if (input$transform_x =="log10") {
+      koos <- koos %>% mutate(`Fold change` = log10(`Fold change`))
+    } else if (input$transform_x =="minus_log10") {
+      koos <- koos %>% mutate(`Fold change` = -log10(`Fold change`))
+    }
+    
+    
+    if (input$transform_y =="log2") {
+      koos <- koos %>% mutate(`Fold change` = log2(`Fold change`))
+    } else if (input$transform_y =="log10") {
+      koos <- koos %>% mutate(`Fold change` = log10(`Fold change`))
+    } else if (input$transform_y =="minus_log10") {
+      koos <- koos %>% mutate(`Fold change` = -log10(`Fold change`))
+    }
+      
+      
+    
+    
     
     foldchange_tr=input$fc_cutoff
     pvalue_tr=input$p_cutoff
