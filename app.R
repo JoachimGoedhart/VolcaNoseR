@@ -66,10 +66,11 @@ ui <- fluidPage(
             # hr(),
             sliderInput("fc_cutoff", "Fold Change threshold:", 0, 5, step=0.1, value = 1.5),
             sliderInput("p_cutoff", "Significance threshold:", 0, 5, step=0.1, value = 2),
+            selectInput("direction", label="Use threshold to highlight:", choices = list("All"="all", "Only Significant"="significant","Only Increased"="increased", "Only Decreased"="decreased"), selected ="all"),
+            
             
             h4("Annotation of candidates"),
             numericInput("top_x", "Number of top candidates:", value = "10"),
-            selectInput("direction", label=NULL, choices = list("All"="all", "Only Significant"="significant","Only Increased"="increased", "Only Decreased"="decreased"), selected ="all"),
             
             
             checkboxInput(inputId = "show_table",
@@ -240,13 +241,6 @@ ui <- fluidPage(
 
               # downloadButton("downloadData", "Download (transformed) data (csv)"),
               hr(),
-              
-              
-              
-              
-              
-              
-              hr(),
 
               NULL
               ),
@@ -334,6 +328,9 @@ df_upload <- reactive({
       } else {data <- read.csv(input$URL)}
     }
   
+  
+  #Replace space and dot of header names by underscore
+  data <- data %>% select_all(~gsub("\\s+|\\.", "_", .))
     return(data)
   })
   
@@ -358,7 +355,7 @@ output$data_uploaded <- renderDataTable(
   observe({
     df <- df_upload()
     var_names  <- names(df)
-    varx_list <- c("-", var_names)
+    # varx_list <- c("-", var_names)
 
     # Get the names of columns that are factors. These can be used for coloring the data with discrete colors
     nms_fact <- names(Filter(function(x) is.factor(x) || is.integer(x) ||
@@ -370,28 +367,174 @@ output$data_uploaded <- renderDataTable(
                               is.double(x),
                             df))
 
-    vary_list <- c("-",nms_var)
+    var_list <- c("-",nms_var)
     mapping_list_num <- c("No",nms_var)
     mapping_list_fact <- c("-",nms_fact)
     mapping_list_all <- c("No",var_names)
     facet_list_factors <- c(".",nms_fact)
     
-    updateSelectInput(session, "x_var", choices = varx_list, selected = "log2_FoldChange")
-    updateSelectInput(session, "transform_column", choices = mapping_list_num)
-    updateSelectInput(session, "y_var", choices = vary_list, selected = "minus_log10_pvalue")
+    updateSelectInput(session, "x_var", choices = var_list, selected = "log2_FoldChange")
+    updateSelectInput(session, "y_var", choices = var_list, selected = "minus_log10_pvalue")
     # updateSelectInput(session, "map_size", choices = mapping_list_all)
    updateSelectInput(session, "g_var", choices = mapping_list_fact, selected = "Gene")
-    # updateSelectInput(session, "map_color", choices = mapping_list_all)
+
 
 
   })
   
+########### GET INPUT VARIABLEs FROM HTML ##############
+
+observe({
+  
+  
+  ############ ?data ################
+  
+  query <- parseQueryString(session$clientData$url_search)
+  if (!is.null(query[['data']])) {
+    presets_data <- query[['data']]
+    presets_data <- unlist(strsplit(presets_data,";"))
+    #    observe(print((presets_data)))
+    
+    updateRadioButtons(session, "data_input", selected = presets_data[1])    
+    updateCheckboxInput(session, "tidyInput", value = presets_data[2])
+    
+    updateSelectInput(session, "x_var", selected = presets_data[3])
+    updateSelectInput(session, "y_var", selected = presets_data[4])    
+    updateSelectInput(session, "g_var", selected = presets_data[5])
+    
+    
+    if (presets_data[1] == "1" || presets_data[1] == "2") {
+      updateTabsetPanel(session, "tabs", selected = "Plot")
+    }
+  }
+  
+  
+  
+  ############ ?vis ################
+  
+  if (!is.null(query[['vis']])) {
+    
+    presets_vis <- query[['vis']]
+    presets_vis <- unlist(strsplit(presets_vis,";"))
+    observe(print((presets_vis)))
+    
+    updateSliderInput(session, "pointSize", value = presets_vis[1])
+    updateSliderInput(session, "alphaInput", value = presets_vis[2])
+    updateSliderInput(session, "fc_cutoff", value = presets_vis[3])
+    updateSliderInput(session, "p_cutoff", value = presets_vis[4])
+    updateSelectInput(session, "direction", selected = presets_vis[5])
+
+    
+  }
+  
+  
+  ############ ?list ################
+  
+  if (!is.null(query[['list']])) {
+    
+    presets_list <- query[['list']]
+    presets_list <- unlist(strsplit(presets_list,";"))
+    observe(print((presets_list)))
+    
+    updateNumericInput(session, "top_x", value = presets_list[1])
+    updateCheckboxInput(session, "show_table", value = presets_list[2])
+    updateCheckboxInput(session, "show_labels", value= presets_list[3])
+    updateCheckboxInput(session, "user_selected", value= presets_list[4])
+    updateTextInput(session, "user_gene_list", value= presets_list[5])
+  }
+  
+  
+  
+  ############ ?layout ################
+  
+  if (!is.null(query[['layout']])) {
+    
+    presets_layout <- query[['layout']]
+    presets_layout <- unlist(strsplit(presets_layout,";"))
+    observe(print((presets_layout)))
+    
+    # updateCheckboxInput(session, "no_grid", value = (presets_layout[2]))
+    
+    updateCheckboxInput(session, "change_scale", value = presets_layout[3])
+    updateTextInput(session, "range_x", value= presets_layout[4])
+    updateTextInput(session, "range_y", value= presets_layout[5])
+    updateCheckboxInput(session, "transform", value = presets_layout[6])
+    updateRadioButtons(session, "transform_x", selected = presets_layout[7])
+    updateRadioButtons(session, "transform_y", selected = presets_layout[8])    
+    #    updateCheckboxInput(session, "add_description", value = presets_layout[9])
+    if (length(presets_layout)>10) {
+      updateNumericInput(session, "plot_height", value= presets_layout[10])
+      updateNumericInput(session, "plot_width", value= presets_layout[11])
+    }
+    #  updateTabsetPanel(session, "tabs", selected = "Plot")
+  }
+  
+  ############ ?color ################
+  
+  # if (!is.null(query[['color']])) {
+  #   
+  #   presets_color <- query[['color']]
+  #   presets_color <- unlist(strsplit(presets_color,";"))
+  #   
+  #   updateSelectInput(session, "colour_list", selected = presets_color[1])
+  #   updateTextInput(session, "user_color_list", value= presets_color[2])
+  # }
+  
+  ############ ?label ################
+  
+  if (!is.null(query[['label']])) {
+    
+    presets_label <- query[['label']]
+    presets_label <- unlist(strsplit(presets_label,";"))
+    observe(print((presets_label)))
+    
+    
+    updateCheckboxInput(session, "add_title", value = presets_label[1])
+    updateTextInput(session, "title", value= presets_label[2])
+    
+    updateCheckboxInput(session, "label_axes", value = presets_label[3])
+    updateTextInput(session, "lab_x", value= presets_label[4])
+    updateTextInput(session, "lab_y", value= presets_label[5])
+    
+    updateCheckboxInput(session, "adj_fnt_sz", value = presets_label[6])
+    updateNumericInput(session, "fnt_sz_title", value= presets_label[7])
+    updateNumericInput(session, "fnt_sz_labs", value= presets_label[8])
+    
+    updateNumericInput(session, "fnt_sz_ax", value= presets_label[9])
+    updateNumericInput(session, "fnt_sz_cand", value= presets_label[10])
+    updateCheckboxInput(session, "add_legend", value = presets_label[11])    
+    updateTextInput(session, "legend_title", value= presets_label[12])
+    updateCheckboxInput(session, "show_labels_y", value = presets_label[13])
+    
+    #    updateCheckboxInput(session, "add_description", value = presets_label[9])
+  }
+  
+
+  
+  
+  ############ ?url ################
+  
+  if (!is.null(query[['url']])) {
+    updateRadioButtons(session, "data_input", selected = 5)  
+    updateTextInput(session, "URL", value= query[['url']])
+    observe(print((query[['url']])))
+    updateTabsetPanel(session, "tabs", selected = "Plot")
+  }
+  
+  
+})
+
+
+
+
+
+
+
   
   ################ Select top candidates #########
   df_top  <- reactive({
         df <- df_filtered()
-        
-        df <- df %>% mutate(`Manhattan distance` = abs(`Significance`)+abs(`Fold change`)) %>% arrange(desc(`Manhattan distance`))
+
         
         if (input$direction =="increased") {
           df <- df %>% filter(Change=="Increased")
@@ -403,6 +546,10 @@ output$data_uploaded <- renderDataTable(
           df <- df %>% filter(Change!="Unchanged")
           
         }
+                
+        df <- df %>% mutate(`Manhattan distance` = abs(`Significance`)+abs(`Fold change`)) %>% arrange(desc(`Manhattan distance`))
+        
+
         
         df_out <- df %>% top_n(input$top_x,`Manhattan distance`) %>% select(Name, Change, `Fold change`,`Significance`,`Manhattan distance`)
         
@@ -410,7 +557,7 @@ output$data_uploaded <- renderDataTable(
         return(df_out)
   })
 
-  
+  ################ List of user-selected candidates #########
   df_user <- reactive({
     
     usr_selection <- strsplit(input$user_gene_list,",")[[1]]
@@ -419,13 +566,10 @@ output$data_uploaded <- renderDataTable(
 
     df <- df %>% filter(Name %in% usr_selection)
 
-    
   })
   
-  
-  
   ################ SELECT COLUMNS AND ANNOTATE CHANGES #########
-  df_filtered <- reactive({     
+df_filtered <- reactive({     
     
       df <- df_upload()
 
@@ -439,8 +583,12 @@ output$data_uploaded <- renderDataTable(
       koos$Name <- " "
     } else if (g_choice != "-") {
       koos <- df %>% select(`Fold change` = !!x_choice , `Significance` = !!y_choice, Name = input$g_var)
+      #Remove  names after semicolon for candidates with multiple names, seperated by semicolons, e.g.: POLR2J3;POLR2J;POLR2J2
+      koos <- koos %>% mutate(Name = gsub(';.*','',Name))
       
     }
+    
+
     
     if (input$transform_x =="log2") {
       koos <- koos %>% mutate(`Fold change` = log2(`Fold change`))
@@ -459,23 +607,31 @@ output$data_uploaded <- renderDataTable(
       koos <- koos %>% mutate(`Fold change` = -log10(`Fold change`))
     }
       
-      
-    
-    
-    
     foldchange_tr=input$fc_cutoff
     pvalue_tr=input$p_cutoff
 
 ##    koos <- koos %>%mutate(Change = ifelse((foldchange >= foldchange_tr && pvalue >= pvalue_tr ),"Increased", ifelse(foldchange<=-foldchange_tr , "Decreased", "Unchanged")))
 
-    
+    if (input$direction =="decreased") {
+      koos <- koos %>%mutate(
+        Change = case_when(
+          `Fold change` < -foldchange_tr & `Significance` > pvalue_tr ~ "Decreased",
+          TRUE ~ "Unchanged")
+      )
+    } else if (input$direction =="increased") {
+      koos <- koos %>%mutate(
+        Change = case_when(
+          `Fold change` > foldchange_tr & `Significance` > pvalue_tr ~ "Increased",
+          TRUE ~ "Unchanged")
+      )
+    } else {
     koos <- koos %>%mutate(
            Change = case_when(
              `Fold change` > foldchange_tr & `Significance` > pvalue_tr ~ "Increased",
              `Fold change` < -foldchange_tr & `Significance` > pvalue_tr ~ "Decreased",
              TRUE ~ "Unchanged")
-    )
-
+          )
+    }
     
     return(koos)
     #Replace space and dot of header names by underscore
@@ -483,7 +639,6 @@ output$data_uploaded <- renderDataTable(
     #   select_all(~gsub("\\s+|\\.", "_", .))
     
 })
-  
 
 ############## Render the data summary as a table ###########
   
@@ -507,7 +662,6 @@ plot_data <- reactive({
       
       rng_x <- c(NULL,NULL)
     }
-    
     
     ############## Adjust Y-scaling if necessary ##########
     
@@ -554,7 +708,7 @@ plot_data <- reactive({
           nudge_x = 0.2,
           nudge_y=0.2,
           box.padding = unit(0.9, "lines"),
-          point.padding = unit(.3+input$pointSize*0.1, "lines"),show_guide=F
+          point.padding = unit(.3+input$pointSize*0.1, "lines"),show.legend=F
           )
       
     }
@@ -567,10 +721,10 @@ plot_data <- reactive({
         size = input$fnt_sz_cand,
         nudge_x = 0.2,
         nudge_y=-0.2,
-        check_overlap = TRUE,
+        # check_overlap = TRUE,
         box.padding = unit(0.35, "lines"),
         point.padding = unit(0.3+input$pointSize*0.1, "lines"),
-        show_guide=F
+        show.legend=F
       )
       
     }
@@ -607,8 +761,6 @@ plot_data <- reactive({
     
   })
 
-  
-  
   
     ##### Render the plot ############
 
@@ -649,20 +801,24 @@ output$coolplot <- renderPlot(width = width, height = height,{
       aes(y=`Significance`) +
       geom_point(alpha = input$alphaInput, size = input$pointSize) +
       
-      #Indicate cut-offs with dashed lines
-      geom_vline(xintercept = input$fc_cutoff, linetype="dashed") +
-      geom_vline(xintercept = -input$fc_cutoff, linetype="dashed") +
-      geom_hline(yintercept = input$p_cutoff, linetype="dashed") +  
+ 
       
       # This needs to go here (before annotations)
       theme_light(base_size = 16) +
       aes(color=Change) + 
-      scale_color_manual(values=c("grey", "red", "blue")) +
+        scale_color_manual(values=c("grey", "red", "blue")) +
     
       #remove gridlines (if selected
       theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
       
       NULL
+    
+    #Indicate cut-offs with dashed lines
+    if (input$direction !="decreased")  p <- p + geom_vline(xintercept = input$fc_cutoff, linetype="dashed")
+    if (input$direction !="increased")  p <- p + geom_vline(xintercept = -input$fc_cutoff, linetype="dashed")
+    
+    p <- p + geom_hline(yintercept = input$p_cutoff, linetype="dashed") 
+    
 
  ########## User defined labeling     
     if (input$user_selected == TRUE) {
@@ -676,7 +832,7 @@ output$coolplot <- renderPlot(width = width, height = height,{
           nudge_y=0.2,
           box.padding = unit(0.9, "lines"),
           point.padding = unit(.3+input$pointSize*0.1, "lines"),
-          show_guide=F)
+          show.legend=F)
       
     }
 
@@ -688,10 +844,10 @@ output$coolplot <- renderPlot(width = width, height = height,{
             size = input$fnt_sz_cand,
             nudge_x = 0.2,
             nudge_y=-0.2,
-            check_overlap = TRUE,
+            # check_overlap = TRUE,
             box.padding = unit(0.35, "lines"),
             point.padding = unit(0.3+input$pointSize*0.1, "lines"),
-            show_guide=F
+            show.legend=F
           )
         
       }
@@ -794,8 +950,6 @@ output$hover_info <- renderUI({
     },
     contentType = "application/png" # MIME type of the image
   )  
-  
-  
   
 
 ########### Update count #########
