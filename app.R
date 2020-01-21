@@ -60,10 +60,7 @@ ui <- fluidPage(
 
             sliderInput("pointSize", "Size of the datapoints", 0, 10, 4),  
             
-            
             sliderInput("alphaInput", "Visibility of the data", 0, 1, 0.8),  
-            
-            
 
             # hr(),
             sliderInput("fc_cutoff", "Fold Change threshold:", 0, 5, step=0.1, value = 1.5),
@@ -84,7 +81,6 @@ ui <- fluidPage(
                           label = "User defined candidates",
                           value = FALSE),
             
-            
             conditionalPanel(condition = "input.user_selected == true",
                              textInput("user_gene_list", "Add labels for (case sensitive)", value = "DYSF,LAMC3"), 
                              
@@ -93,8 +89,34 @@ ui <- fluidPage(
             ),
             
 
-            h4("Scaling"),
+            h4("Transformation & Scaling"),
             
+            
+            checkboxInput(inputId = "transform",
+                          label = "Transform the data",
+                          value = FALSE),
+            
+            conditionalPanel(condition = "input.transform==true",
+                             
+                             radioButtons(
+                               "transform_x", "Transform x-axis data:",
+                               choices =
+                                 list("No" = "No",
+                                      "log2" = "log2",
+                                      "log10" = "log10",
+                                      "-log10" = "minus_log10"),
+                               selected = "No"),
+                             radioButtons(
+                               "transform_y", "Transform y-axis data:",
+                               choices =
+                                 list("No" = "No",
+                                      "log2" = "log2",
+                                      "log10" = "log10",
+                                      "-log10" = "minus_log10"),
+                               selected = "No")
+                             
+                             
+            ),
             
             checkboxInput(inputId = "change_scale",
                           label = "Change scale",
@@ -116,6 +138,48 @@ ui <- fluidPage(
             numericInput("plot_width", "Plot width (# pixels):", value = 800),
 
 
+            h4("Labels"),
+  
+            checkboxInput(inputId = "add_title",
+                          label = "Add title",
+                          value = FALSE),
+            conditionalPanel(
+              condition = "input.add_title == true",
+              textInput("title", "Title:", value = "")
+            ),
+            
+            checkboxInput(inputId = "label_axes",
+                          label = "Change axis labels",
+                          value = FALSE),
+            conditionalPanel(
+              condition = "input.label_axes == true",
+              textInput("lab_x", "X-axis:", value = ""),
+              textInput("lab_y", "Y-axis:", value = "")
+              
+            ),
+            
+            checkboxInput(inputId = "adj_fnt_sz",
+                          label = "Change font size",
+                          value = FALSE),
+            conditionalPanel(
+              condition = "input.adj_fnt_sz == true",
+              numericInput("fnt_sz_title", "Plot title:", value = 24),
+              numericInput("fnt_sz_labs", "Axis titles:", value = 24),
+              numericInput("fnt_sz_ax", "Axis labels:", value = 18),
+              numericInput("fnt_sz_cand", "Labels of candidates:", value = 6)
+              
+            ),
+
+              checkboxInput(inputId = "add_legend",
+                            label = "Add legend",
+                            value = FALSE),
+            
+            # 
+            # conditionalPanel(
+            #   condition = "input.add_legend == true",
+            #   textInput("legend_title", "Legend title:", value = "")
+            # ),
+            
             
               NULL),
           
@@ -164,33 +228,7 @@ ui <- fluidPage(
               selectInput("y_var", label = "Y-axis; Significance (p-value)", choices = "-"),
               selectInput("g_var", label = "Select column with names", choices = "-"),
               
-              checkboxInput(inputId = "transform",
-                            label = "Transform the data",
-                            value = FALSE),
 
-              
-              
-              conditionalPanel(condition = "input.transform==true",
-                               
-                               radioButtons(
-                                 "transform_x", "Transform x-axis data:",
-                                 choices =
-                                   list("No" = "No",
-                                        "log2" = "log2",
-                                        "log10" = "log10",
-                                        "-log10" = "minus_log10"),
-                                 selected = "No"),
-                               radioButtons(
-                                 "transform_y", "Transform y-axis data:",
-                                 choices =
-                                   list("No" = "No",
-                                        "log2" = "log2",
-                                        "log10" = "log10",
-                                        "-log10" = "minus_log10"),
-                                 selected = "No")
-                               
-                               
-              ),
               # downloadButton("downloadData", "Download (transformed) data (csv)"),
               hr(),
               
@@ -293,13 +331,7 @@ output$data_uploaded <- renderDataTable(
     editable = FALSE,selection = 'none'
   )
   
-  
-  geom.selected <- "-"
-  #Retrieve the currently selected geom and use as default, even when y_var changes
-  observe({
-    geom.selected <<- input$geom
-  })
-  
+
 
 
   ##### Get Variables from the input ##############
@@ -355,7 +387,7 @@ output$data_uploaded <- renderDataTable(
         
         df_out <- df %>% top_n(input$top_x,`Manhattan distance`) %>% select(Name, Change, `Fold change`,`Significance`,`Manhattan distance`)
         
-        observe({print(df_out)})
+        # observe({print(df_out)})
         return(df_out)
   })
 
@@ -498,7 +530,7 @@ plot_data <- reactive({
         geom_text_repel(
           data = df_user(),
           aes(label = Name),
-          size = 6,
+          size = input$fnt_sz_cand,
           color="black",
           nudge_x = 0.2,
           nudge_y=0.2,
@@ -513,7 +545,7 @@ plot_data <- reactive({
       p <- p + geom_text_repel(
         data = df_top(),
         aes(label = Name),
-        size = 6,
+        size = input$fnt_sz_cand,
         nudge_x = 0.2,
         nudge_y=-0.2,
         check_overlap = TRUE,
@@ -524,6 +556,33 @@ plot_data <- reactive({
       
     }
     p <- p + coord_cartesian(xlim=c(rng_x[1],rng_x[2]),ylim=c(rng_y[1],rng_y[2]))
+    
+    ########## Do some formatting of the lay-out ##########
+    
+    
+    
+    # if title specified
+    if (input$add_title == TRUE) {
+      #Add line break to generate some space
+      title <- paste(input$title, "\n",sep="")
+      p <- p + labs(title = title)
+    }
+    
+    # # if labels specified
+    if (input$label_axes)
+      p <- p + labs(x = input$lab_x, y = input$lab_y)
+    
+    # # if font size is adjusted
+    if (input$adj_fnt_sz) {
+      p <- p + theme(axis.text = element_text(size=input$fnt_sz_ax))
+      p <- p + theme(axis.title = element_text(size=input$fnt_sz_labs))
+      p <- p + theme(plot.title = element_text(size=input$fnt_sz_title))
+    }
+    
+    #remove legend (if selected)
+    if (input$add_legend == FALSE) {  
+      p <- p + theme(legend.position="none")
+    }
     
     p
     
@@ -592,7 +651,7 @@ output$coolplot <- renderPlot(width = width, height = height,{
         geom_text_repel(
           data = df_user(),
           aes(label = Name),
-          size = 6,
+          size = input$fnt_sz_cand,
           color="black",
           nudge_x = 0.2,
           nudge_y=0.2,
@@ -607,7 +666,7 @@ output$coolplot <- renderPlot(width = width, height = height,{
         p <- p + geom_text_repel(
             data = df_top(),
             aes(label = Name),
-            size = 6,
+            size = input$fnt_sz_cand,
             nudge_x = 0.2,
             nudge_y=-0.2,
             check_overlap = TRUE,
@@ -618,6 +677,32 @@ output$coolplot <- renderPlot(width = width, height = height,{
         
       }
     p <- p + coord_cartesian(xlim=c(rng_x[1],rng_x[2]),ylim=c(rng_y[1],rng_y[2]))
+    ########## Do some formatting of the lay-out ##########
+    
+    
+    
+    # if title specified
+    if (input$add_title == TRUE) {
+      #Add line break to generate some space
+      title <- paste(input$title, "\n",sep="")
+      p <- p + labs(title = title)
+    }
+    
+    # # if labels specified
+    if (input$label_axes)
+      p <- p + labs(x = input$lab_x, y = input$lab_y)
+    
+    # # if font size is adjusted
+    if (input$adj_fnt_sz) {
+      p <- p + theme(axis.text = element_text(size=input$fnt_sz_ax))
+      p <- p + theme(axis.title = element_text(size=input$fnt_sz_labs))
+      p <- p + theme(plot.title = element_text(size=input$fnt_sz_title))
+    }
+    
+    #remove legend (if selected)
+    if (input$add_legend == FALSE) {  
+      p <- p + theme(legend.position="none")
+    }
 
     p
   })
