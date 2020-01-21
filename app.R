@@ -31,6 +31,7 @@ library(dplyr)
 library(ggrepel)
 library(shinycssloaders)
 library(DT)
+library(RCurl)
 
 df_example <- read.csv("Data-Vulcano-plot.csv", na.strings = "")
 df_example_cdc42 <- read.csv("elife-45916-Cdc42QL_data.csv", na.strings = "")
@@ -196,7 +197,8 @@ ui <- fluidPage(
                 choices = 
                   list("Example data 1" = 1,
                        "Example data 2" = 2,
-                       "Upload TXT or CSV file" = 3
+                       "Upload TXT or CSV file" = 3,
+                       "URL (csv files only)" = 5
                   )
                 ,
                 selected =  1),
@@ -222,6 +224,13 @@ ui <- fluidPage(
                     selected = ",")
 
                 ),
+              ### csv via URL as input      
+              conditionalPanel(
+                condition = "input.data_input=='5'",
+                #         textInput("URL", "URL", value = "https://zenodo.org/record/2545922/files/FRET-efficiency_mTq2.csv"), 
+                 textInput("URL", "URL", value = ""), 
+                NULL
+              ),
               h4('Select X & Y variables'),
               
               selectInput("x_var", label = "X-axis; Effect (fold change)", choices = "-"),
@@ -314,7 +323,17 @@ df_upload <- reactive({
            
         })
       }
+    } else if (input$data_input == 5) {
+      
+      #Read data from a URL
+      #This requires RCurl
+      if(input$URL == "") {
+        return(data.frame(x = "Enter a full HTML address, for example: https://raw.githubusercontent.com/JoachimGoedhart/VolcaNoseR/master/elife-45916-Cdc42QL_data.csv"))
+      } else if (url.exists(input$URL) == FALSE) {
+        return(data.frame(x = paste("Not a valid URL: ",input$URL)))
+      } else {data <- read.csv(input$URL)}
     }
+  
     return(data)
   })
   
