@@ -298,7 +298,7 @@ server <- function(input, output, session) {
   # Session variable - initialize defaults
   x_var.selected <- "log2_FoldChange"
   y_var.selected <- "minus_log10_pvalue"
-  gene.selected <- "Gene"
+  g_var.selected <- "Gene"
   
 
   isolate(vals$count <- vals$count + 1)
@@ -307,14 +307,14 @@ server <- function(input, output, session) {
 df_upload <- reactive({
     
     if (input$data_input == 1) {
-      x_var.selected <- "log2_FoldChange"
-      y_var.selected <- "minus_log10_pvalue"
-      gene.selected <- "Gene"
+      x_var.selected <<- "log2_FoldChange"
+      y_var.selected <<- "minus_log10_pvalue"
+      gene.selected <<- "Gene"
       data <- df_example
     } else if (input$data_input == 2) {
-      x_var.selected <- "log2_FoldChange"
-      y_var.selected <- "minus_log10_pvalue"
-      gene.selected <- "Gene"
+      x_var.selected <<- "log2_FoldChange"
+      y_var.selected <<- "minus_log10_pvalue"
+      gene.selected <<- "Gene"
       data <- df_example_cdc42
     } else if (input$data_input == 3) {
       file_in <- input$upload
@@ -382,7 +382,7 @@ observe({
     updateSelectInput(session, "y_var", choices = nms_var, selected = y_var.selected)
     
     # updateSelectInput(session, "map_size", choices = mapping_list_all)
-   updateSelectInput(session, "g_var", choices = nms_fact, selected = gene.selected)
+   updateSelectInput(session, "g_var", choices = nms_fact, selected = g_var.selected)
 
 
 
@@ -422,9 +422,9 @@ observe({
     # updateSelectInput(session, "y_var", selected = presets_data[4])    
     # updateSelectInput(session, "g_var", selected = presets_data[5])
     
-    x_var.selected <- presets_data[3]
-    y_var.selected <- presets_data[4]
-    g_var.selected <- presets_data[5]
+    x_var.selected <<- presets_data[3]
+    y_var.selected <<- presets_data[4]
+    g_var.selected <<- presets_data[5]
     
     if (presets_data[1] == "1" || presets_data[1] == "2") {
       updateTabsetPanel(session, "tabs", selected = "Plot")
