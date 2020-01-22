@@ -75,10 +75,10 @@ ui <- fluidPage(
             
             checkboxInput(inputId = "show_table",
                           label = "Show top candidates in table",
-                          value = TRUE),
+                          value = FALSE),
             checkboxInput(inputId = "show_labels",
                           label = "Label top candidates in plot",
-                          value = TRUE),
+                          value = FALSE),
             checkboxInput(inputId = "user_selected",
                           label = "User defined candidates",
                           value = FALSE),
@@ -266,6 +266,9 @@ ui <- fluidPage(
                              downloadButton("downloadPlotPDF", "Download pdf-file"),
                              #                          downloadButton("downloadPlotSVG", "Download svg-file"),
                              downloadButton("downloadPlotPNG", "Download png-file"),
+                             
+                             actionButton("settings_copy", icon = icon("clone"),
+                                          label = "Clone current setting"),
 
                              plotOutput("coolplot",
                                         height = 'auto',
@@ -524,6 +527,87 @@ observe({
   
 })
 
+########### RENDER URL ##############
+
+output$HTMLpreset <- renderText({
+  url()
+})
+
+######### GENERATE URL with the settings #########
+
+url <- reactive({
+  
+  base_URL <- paste(sep = "", session$clientData$url_protocol, "//",session$clientData$url_hostname, ":",session$clientData$url_port, session$clientData$url_pathname)
+  
+  data <- c(input$data_input, "", input$x_var, input$y_var, input$g_var, "")
+  
+  vis <- c(input$pointSize, input$alphaInput, input$fc_cutoff, input$p_cutoff, input$direction)
+  
+  list <- c(input$top_x, input$show_table, input$show_labels, input$user_selected)
+  if (input$user_selected==TRUE) {list <- c(list,input$user_gene_list)}
+  
+  layout <- c(" ", "", input$change_scale, input$range_x, input$range_y, input$transform, input$transform_x,
+               input$transform_y, "X", input$plot_height, input$plot_width)
+  
+
+  label <- c(input$add_title, input$title, input$label_axes, input$lab_x, input$lab_y, input$adj_fnt_sz, input$fnt_sz_title, input$fnt_sz_labs, input$fnt_sz_ax, input$fnt_sz_stim, input$add_legend, input$legend_title, input$show_labels_y)
+
+  
+  #replace FALSE by "" and convert to string with ; as seperator
+  data <- sub("FALSE", "", data)
+  data <- paste(data, collapse=";")
+  data <- paste0("data=", data) 
+  
+  vis <- sub("FALSE", "", vis)
+  vis <- paste(vis, collapse=";")
+  vis <- paste0("vis=", vis)
+  
+  
+  list <- sub("FALSE", "", list)
+  list <- paste(list, collapse=";")
+  list <- paste0("list=", list)
+  
+  # 
+  layout <- sub("FALSE", "", layout)
+  layout <- paste(layout, collapse=";")
+  layout <- paste0("layout=", layout)
+  # 
+  # color <- sub("FALSE", "", color)
+  # color <- paste(color, collapse=";")
+  # color <- paste0("color=", color) 
+  
+  label <- sub("FALSE", "", label)
+  label <- paste(label, collapse=";")
+  label <- paste0("label=", label) 
+  
+  # stim <- sub("FALSE", "", stim)
+  # stim <- paste(stim, collapse=";")
+  # stim <- paste0("stim=", stim) 
+  
+  if (input$data_input == "5") {url <- paste("url=",input$URL,sep="")} else {url <- NULL}
+  
+  # parameters <- paste(data, vis,layout,color,label,stim,url, sep="&")
+  
+  parameters <- paste(data,vis,list,layout,label,url, sep="&")
+
+  
+    preset_URL <- paste(base_URL, parameters, sep="?")
+  
+  observe(print(parameters))
+  observe(print(preset_URL))  
+  return(preset_URL)
+})
+
+
+############# Pop-up that displays the URL to 'clone' the current settings ################
+
+observeEvent(input$settings_copy , {
+  showModal(urlModal(url=url(), title = "Use the URL to launch VolcaNoseR with the current setting"))
+})
+
+# observeEvent(input$legend_copy , {
+#   showModal(urlModal(url=Fig_legend(), title = "Legend text"))
+# })
 
 
 
