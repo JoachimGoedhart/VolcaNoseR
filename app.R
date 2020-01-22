@@ -71,8 +71,8 @@ ui <- fluidPage(
             
             
             h4("Annotation of hits"),
-            numericInput("top_x", "Number of top hits (0 to deselect):", value = 10),
-            
+            numericInput("top_x", "Number of top hits (0 to hide):", value = 10),
+            textInput("user_gene_list", "Selected hits (names separated by commas, e.g. DOK6,TBX5)", value = ""), 
             
             checkboxInput(inputId = "show_table",
                           label = "Show table with hits",
@@ -80,17 +80,17 @@ ui <- fluidPage(
             checkboxInput(inputId = "show_labels",
                           label = "Label hits in the plot",
                           value = FALSE),
-            checkboxInput(inputId = "user_selected",
-                          label = "User defined hits",
-                          value = FALSE),
-            
-            conditionalPanel(condition = "input.user_selected == true",
-                             textInput("user_gene_list", "Add labels for (case sensitive)", value = "DYSF,LAMC3"), 
-                             
-
-                          NULL   
-            ),
-            
+            # checkboxInput(inputId = "user_selected",
+            #               label = "User defined hits",
+            #               value = FALSE),
+            # 
+            # conditionalPanel(condition = "input.user_selected == true",
+            #                 
+            #                  
+            # 
+            #               NULL   
+            # ),
+            # 
 
             h4("Transformation & Scaling"),
             
@@ -462,8 +462,8 @@ observe({
     updateNumericInput(session, "top_x", value = presets_can[1])
     updateCheckboxInput(session, "show_table", value = presets_can[2])
     updateCheckboxInput(session, "show_labels", value= presets_can[3])
-    updateCheckboxInput(session, "user_selected", value= presets_can[4])
-    updateTextInput(session, "user_gene_list", value= presets_can[5])
+    # updateCheckboxInput(session, "user_selected", value= presets_can[4])
+    updateTextInput(session, "user_gene_list", value= presets_can[4])
   }
   
   
@@ -562,9 +562,9 @@ url <- reactive({
   vis <- c(input$pointSize, input$alphaInput, input$fc_cutoff, input$p_cutoff, input$direction)
   
   #as.character is necessary; if omitted TRUE is converted to 0 and FALSE to 1 which is undesired
-  can <- c(input$top_x, as.character(input$show_table), input$show_labels, input$user_selected)
+  can <- c(input$top_x, as.character(input$show_table), input$show_labels, input$user_gene_list)
   
-  if (input$user_selected==TRUE) {can <- c(can,input$user_gene_list)}
+  # if (input$user_gene_list!="") {can <- c(can,input$user_gene_list)}
   
   layout <- c("", "", input$change_scale, input$range_x, input$range_y, input$transform, input$transform_x,
                input$transform_y, "X", input$plot_height, input$plot_width)
@@ -658,8 +658,10 @@ observeEvent(input$settings_copy , {
         
         df_out <- df %>% top_n(input$top_x,`Manhattan distance`) %>% select(Name, Change, `Fold change`,`Significance`,`Manhattan distance`)
         
-        if (input$user_selected == TRUE) {
-        df_out <- bind_rows(df_out,df_user())
+        if (input$user_gene_list != "") {
+          
+          #Add user selected hits, but remove them when already present
+        df_out <- bind_rows(df_out,df_user()) %>% distinct(Name, .keep_all = TRUE)
         }
         
         # observe({print(df_out)})
