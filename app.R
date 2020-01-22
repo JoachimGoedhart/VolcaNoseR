@@ -70,18 +70,18 @@ ui <- fluidPage(
             selectInput("direction", label="Use threshold to highlight:", choices = list("All"="all", "Only Significant"="significant","Only Increased"="increased", "Only Decreased"="decreased"), selected ="all"),
             
             
-            h4("Annotation of candidates"),
-            numericInput("top_x", "Number of top candidates:", value = 10),
+            h4("Annotation of hits"),
+            numericInput("top_x", "Number of top hits (0 to deselect):", value = 10),
             
             
             checkboxInput(inputId = "show_table",
-                          label = "Show top candidates in table",
+                          label = "Show table with hits",
                           value = FALSE),
             checkboxInput(inputId = "show_labels",
-                          label = "Label top candidates in plot",
+                          label = "Label hits in the plot",
                           value = FALSE),
             checkboxInput(inputId = "user_selected",
-                          label = "User defined candidates",
+                          label = "User defined hits",
                           value = FALSE),
             
             conditionalPanel(condition = "input.user_selected == true",
@@ -169,7 +169,7 @@ ui <- fluidPage(
               numericInput("fnt_sz_title", "Plot title:", value = 24),
               numericInput("fnt_sz_labs", "Axis titles:", value = 24),
               numericInput("fnt_sz_ax", "Axis labels:", value = 18),
-              numericInput("fnt_sz_cand", "Labels of candidates:", value = 6)
+              numericInput("fnt_sz_cand", "Labels of hits:", value = 6)
               
             ),
 
@@ -278,7 +278,7 @@ ui <- fluidPage(
                              
                              conditionalPanel(
                                condition = "input.show_table == true",
-                            h3("Top candidates (based on Manhattan distance from origin)")),
+                            h3("Top hits (based on Manhattan distance from origin)")),
                              withSpinner(tableOutput('toptable'))
 
                               ),
@@ -634,7 +634,7 @@ observeEvent(input$settings_copy , {
 
 
   
-  ################ Select top candidates #########
+  ################ Select top hits #########
   df_top  <- reactive({
         df <- df_filtered()
 
@@ -650,17 +650,23 @@ observeEvent(input$settings_copy , {
           
         }
                 
+
+        
         df <- df %>% mutate(`Manhattan distance` = abs(`Significance`)+abs(`Fold change`)) %>% arrange(desc(`Manhattan distance`))
         
 
         
         df_out <- df %>% top_n(input$top_x,`Manhattan distance`) %>% select(Name, Change, `Fold change`,`Significance`,`Manhattan distance`)
         
+        if (input$user_selected == TRUE) {
+        df_out <- bind_rows(df_out,df_user())
+        }
+        
         # observe({print(df_out)})
         return(df_out)
   })
 
-  ################ List of user-selected candidates #########
+  ################ List of user-selected hits #########
   df_user <- reactive({
     
     usr_selection <- strsplit(input$user_gene_list,",")[[1]]
@@ -686,7 +692,7 @@ df_filtered <- reactive({
       koos$Name <- " "
     } else if (g_choice != "-") {
       koos <- df %>% select(`Fold change` = !!x_choice , `Significance` = !!y_choice, Name = input$g_var)
-      #Remove  names after semicolon for candidates with multiple names, seperated by semicolons, e.g.: POLR2J3;POLR2J;POLR2J2
+      #Remove  names after semicolon for hits with multiple names, seperated by semicolons, e.g.: POLR2J3;POLR2J;POLR2J2
       koos <- koos %>% mutate(Name = gsub(';.*','',Name))
       
     }
@@ -783,7 +789,7 @@ plot_data <- reactive({
     p <-  ggplot(data = df) +
       aes(x=`Fold change`) +
       aes(y=`Significance`) +
-      geom_point(alpha = input$alphaInput, size = input$pointSize) +
+      geom_point(alpha = input$alphaInput, size = input$pointSize, shape = 16) +
       
       #Indicate cut-offs with dashed lines
       geom_vline(xintercept = input$fc_cutoff, linetype="dashed") +
@@ -801,10 +807,10 @@ plot_data <- reactive({
       NULL
     
     ########## User defined labeling     
-    if (input$user_selected == TRUE) {
-      p <-  p + geom_point(data=df_user(), aes(x=`Fold change`,y=`Significance`), shape=1,color="black", size=(input$pointSize+1))+
+    if (input$show_labels == TRUE) {
+      p <-  p + geom_point(data=df_top(), aes(x=`Fold change`,y=`Significance`), shape=1,color="black", size=(input$pointSize))+
         geom_text_repel(
-          data = df_user(),
+          data = df_top(),
           aes(label = Name),
           size = input$fnt_sz_cand,
           color="black",
@@ -815,22 +821,22 @@ plot_data <- reactive({
           )
       
     }
-    
-    ########## Top candidates labeling 
-    if (input$show_labels == TRUE) {
-      p <- p + geom_text_repel(
-        data = df_top(),
-        aes(label = Name),
-        size = input$fnt_sz_cand,
-        nudge_x = 0.2,
-        nudge_y=-0.2,
-        # check_overlap = TRUE,
-        box.padding = unit(0.35, "lines"),
-        point.padding = unit(0.3+input$pointSize*0.1, "lines"),
-        show.legend=F
-      )
-      
-    }
+    # 
+    # ########## Top hits labeling 
+    # if (input$show_labels == TRUE) {
+    #   p <- p + geom_text_repel(
+    #     data = df_top(),
+    #     aes(label = Name),
+    #     size = input$fnt_sz_cand,
+    #     nudge_x = 0.2,
+    #     nudge_y=-0.2,
+    #     # check_overlap = TRUE,
+    #     box.padding = unit(0.35, "lines"),
+    #     point.padding = unit(0.3+input$pointSize*0.1, "lines"),
+    #     show.legend=F
+    #   )
+    #   
+    # }
     p <- p + coord_cartesian(xlim=c(rng_x[1],rng_x[2]),ylim=c(rng_y[1],rng_y[2]))
     
     ########## Do some formatting of the lay-out ##########
@@ -902,7 +908,7 @@ output$coolplot <- renderPlot(width = width, height = height,{
     p <-  ggplot(data = df) +
       aes(x=`Fold change`) +
       aes(y=`Significance`) +
-      geom_point(alpha = input$alphaInput, size = input$pointSize) +
+      geom_point(alpha = input$alphaInput, size = input$pointSize, shape = 16) +
       
  
       
@@ -923,37 +929,37 @@ output$coolplot <- renderPlot(width = width, height = height,{
     p <- p + geom_hline(yintercept = input$p_cutoff, linetype="dashed") 
     
 
- ########## User defined labeling     
-    if (input$user_selected == TRUE) {
-      p <-  p + geom_point(data=df_user(), aes(x=`Fold change`,y=`Significance`), shape=1,color="black", size=(input$pointSize+1))+
+    ########## User defined labeling     
+    if (input$show_labels == TRUE) {
+      p <-  p + geom_point(data=df_top(), aes(x=`Fold change`,y=`Significance`), shape=1,color="black", size=(input$pointSize))+
         geom_text_repel(
-          data = df_user(),
+          data = df_top(),
           aes(label = Name),
           size = input$fnt_sz_cand,
           color="black",
           nudge_x = 0.2,
           nudge_y=0.2,
           box.padding = unit(0.9, "lines"),
-          point.padding = unit(.3+input$pointSize*0.1, "lines"),
-          show.legend=F)
+          point.padding = unit(.3+input$pointSize*0.1, "lines"),show.legend=F
+        )
       
     }
-
-  ########## Top candidates labeling 
-      if (input$show_labels == TRUE) {
-        p <- p + geom_text_repel(
-            data = df_top(),
-            aes(label = Name),
-            size = input$fnt_sz_cand,
-            nudge_x = 0.2,
-            nudge_y=-0.2,
-            # check_overlap = TRUE,
-            box.padding = unit(0.35, "lines"),
-            point.padding = unit(0.3+input$pointSize*0.1, "lines"),
-            show.legend=F
-          )
-        
-      }
+    # 
+    # ########## Top hits labeling 
+    # if (input$show_labels == TRUE) {
+    #   p <- p + geom_text_repel(
+    #     data = df_top(),
+    #     aes(label = Name),
+    #     size = input$fnt_sz_cand,
+    #     nudge_x = 0.2,
+    #     nudge_y=-0.2,
+    #     # check_overlap = TRUE,
+    #     box.padding = unit(0.35, "lines"),
+    #     point.padding = unit(0.3+input$pointSize*0.1, "lines"),
+    #     show.legend=F
+    #   )
+    #   
+    # }
     p <- p + coord_cartesian(xlim=c(rng_x[1],rng_x[2]),ylim=c(rng_y[1],rng_y[2]))
     ########## Do some formatting of the lay-out ##########
     
