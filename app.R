@@ -71,7 +71,7 @@ ui <- fluidPage(
             
             
             h4("Annotation of candidates"),
-            numericInput("top_x", "Number of top candidates:", value = "10"),
+            numericInput("top_x", "Number of top candidates:", value = 10),
             
             
             checkboxInput(inputId = "show_table",
@@ -451,19 +451,19 @@ observe({
   }
   
   
-  ############ ?list ################
+  ############ ?can ################
   
-  if (!is.null(query[['list']])) {
+  if (!is.null(query[['can']])) {
     
-    presets_list <- query[['list']]
-    presets_list <- unlist(strsplit(presets_list,";"))
-    observe(print((presets_list)))
+    presets_can <- query[['can']]
+    presets_can <- unlist(strsplit(presets_can,";"))
+    observe(print((presets_can)))
     
-    updateNumericInput(session, "top_x", value = presets_list[1])
-    updateCheckboxInput(session, "show_table", value = presets_list[2])
-    updateCheckboxInput(session, "show_labels", value= presets_list[3])
-    updateCheckboxInput(session, "user_selected", value= presets_list[4])
-    updateTextInput(session, "user_gene_list", value= presets_list[5])
+    updateNumericInput(session, "top_x", value = presets_can[1])
+    updateCheckboxInput(session, "show_table", value = presets_can[2])
+    updateCheckboxInput(session, "show_labels", value= presets_can[3])
+    updateCheckboxInput(session, "user_selected", value= presets_can[4])
+    updateTextInput(session, "user_gene_list", value= presets_can[5])
   }
   
   
@@ -474,7 +474,7 @@ observe({
     
     presets_layout <- query[['layout']]
     presets_layout <- unlist(strsplit(presets_layout,";"))
-    observe(print((presets_layout)))
+    # observe(print((presets_layout)))
     
     # updateCheckboxInput(session, "no_grid", value = (presets_layout[2]))
     
@@ -509,9 +509,7 @@ observe({
     
     presets_label <- query[['label']]
     presets_label <- unlist(strsplit(presets_label,";"))
-    observe(print((presets_label)))
-    
-    
+
     updateCheckboxInput(session, "add_title", value = presets_label[1])
     updateTextInput(session, "title", value= presets_label[2])
     
@@ -526,8 +524,8 @@ observe({
     updateNumericInput(session, "fnt_sz_ax", value= presets_label[9])
     updateNumericInput(session, "fnt_sz_cand", value= presets_label[10])
     updateCheckboxInput(session, "add_legend", value = presets_label[11])    
-    updateTextInput(session, "legend_title", value= presets_label[12])
-    updateCheckboxInput(session, "show_labels_y", value = presets_label[13])
+    # updateTextInput(session, "legend_title", value= presets_label[12])
+    # updateCheckboxInput(session, "show_labels_y", value = presets_label[13])
     
     #    updateCheckboxInput(session, "add_description", value = presets_label[9])
   }
@@ -540,7 +538,7 @@ observe({
   if (!is.null(query[['url']])) {
     updateRadioButtons(session, "data_input", selected = 5)  
     updateTextInput(session, "URL", value= query[['url']])
-    observe(print((query[['url']])))
+    # observe(print((query[['url']])))
     updateTabsetPanel(session, "tabs", selected = "Plot")
   }
   
@@ -563,16 +561,17 @@ url <- reactive({
   
   vis <- c(input$pointSize, input$alphaInput, input$fc_cutoff, input$p_cutoff, input$direction)
   
-  list <- c(input$top_x, input$show_table, input$show_labels, input$user_selected)
-  if (input$user_selected==TRUE) {list <- c(list,input$user_gene_list)}
+  #as.character is necessary; if omitted TRUE is converted to 0 and FALSE to 1 which is undesired
+  can <- c(input$top_x, as.character(input$show_table), input$show_labels, input$user_selected)
   
-  layout <- c(" ", "", input$change_scale, input$range_x, input$range_y, input$transform, input$transform_x,
+  if (input$user_selected==TRUE) {can <- c(can,input$user_gene_list)}
+  
+  layout <- c("", "", input$change_scale, input$range_x, input$range_y, input$transform, input$transform_x,
                input$transform_y, "X", input$plot_height, input$plot_width)
   
 
-  label <- c(input$add_title, input$title, input$label_axes, input$lab_x, input$lab_y, input$adj_fnt_sz, input$fnt_sz_title, input$fnt_sz_labs, input$fnt_sz_ax, input$fnt_sz_stim, input$add_legend, input$legend_title, input$show_labels_y)
+  label <- c(input$add_title, input$title, input$label_axes, input$lab_x, input$lab_y, input$adj_fnt_sz, input$fnt_sz_title, input$fnt_sz_labs, input$fnt_sz_ax, input$fnt_sz_cand, input$add_legend, input$legend_title, input$show_labels_y)
 
-  
   #replace FALSE by "" and convert to string with ; as seperator
   data <- sub("FALSE", "", data)
   data <- paste(data, collapse=";")
@@ -583,9 +582,9 @@ url <- reactive({
   vis <- paste0("vis=", vis)
   
   
-  list <- sub("FALSE", "", list)
-  list <- paste(list, collapse=";")
-  list <- paste0("list=", list)
+  can <- sub("FALSE", "", can)
+  can <- paste(can, collapse=";")
+  can <- paste0("can=", can)
   
   # 
   layout <- sub("FALSE", "", layout)
@@ -608,13 +607,13 @@ url <- reactive({
   
   # parameters <- paste(data, vis,layout,color,label,stim,url, sep="&")
   
-  parameters <- paste(data,vis,list,layout,label,url, sep="&")
+  parameters <- paste(data,vis,can,layout,label,url, sep="&")
 
   
     preset_URL <- paste(base_URL, parameters, sep="?")
   
-  observe(print(parameters))
-  observe(print(preset_URL))  
+  # observe(print(parameters))
+  # observe(print(preset_URL))  
   return(preset_URL)
 })
 
