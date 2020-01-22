@@ -36,6 +36,7 @@ library(RCurl)
 df_example <- read.csv("Data-Vulcano-plot.csv", na.strings = "")
 df_example_cdc42 <- read.csv("elife-45916-Cdc42QL_data.csv", na.strings = "")
 
+
 # Create a reactive object here that we can share between all the sessions.
 vals <- reactiveValues(count=0)
 
@@ -222,7 +223,8 @@ ui <- fluidPage(
                            "Tab" = "\t",
                            "Semicolon" = ";",
                            "Space" = " "),
-                    selected = ",")
+                    selected = ","),          actionButton("submit_datafile_button",
+                                                           "Submit datafile")
 
                 ),
               ### csv via URL as input      
@@ -292,6 +294,12 @@ ui <- fluidPage(
 ) #Close fluidPage
 
 server <- function(input, output, session) {
+  
+  # Session variable - initialize defaults
+  x_var.selected <- "log2_FoldChange"
+  y_var.selected <- "minus_log10_pvalue"
+  gene.selected <- "Gene"
+  
 
   isolate(vals$count <- vals$count + 1)
   ###### DATA INPUT ###################
@@ -299,27 +307,28 @@ server <- function(input, output, session) {
 df_upload <- reactive({
     
     if (input$data_input == 1) {
+      x_var.selected <- "log2_FoldChange"
+      y_var.selected <- "minus_log10_pvalue"
+      gene.selected <- "Gene"
       data <- df_example
     } else if (input$data_input == 2) {
+      x_var.selected <- "log2_FoldChange"
+      y_var.selected <- "minus_log10_pvalue"
+      gene.selected <- "Gene"
       data <- df_example_cdc42
     } else if (input$data_input == 3) {
       file_in <- input$upload
       # Avoid error message while file is not uploaded yet
       if (is.null(input$upload)) {
         return(data.frame(x = "Select your datafile"))
-      } else  {
+      } else if (input$submit_datafile_button == 0) {
+        return(data.frame(x = "Press 'submit datafile' button"))
+      } else {
         isolate({
-
-            # data <- read_delim(file_in$datapath,
-            #                    delim = input$upload_delim,
-            #                    col_names = TRUE)
-          
-          data <- read.csv(file=file_in$datapath,
-                             sep = input$upload_delim)
-          # observe({print(input$upload$name)})
-           
+           data <- read.csv(file=file_in$datapath, sep = input$upload_delim)
         })
       }
+      
     } else if (input$data_input == 5) {
       
       #Read data from a URL
@@ -355,31 +364,25 @@ output$data_uploaded <- renderDataTable(
 
   ##### Get Variables from the input ##############
   
-  observe({
+observe({
     df <- df_upload()
     var_names  <- names(df)
-    # varx_list <- c("-", var_names)
 
     # Get the names of columns that are factors. These can be used for coloring the data with discrete colors
-    nms_fact <- names(Filter(function(x) is.factor(x) || is.integer(x) ||
-                               is.logical(x) ||
-                               is.character(x),
-                             df))
-    nms_var <- names(Filter(function(x) is.integer(x) ||
-                              is.numeric(x) ||
-                              is.double(x),
-                            df))
+    nms_fact <- names(Filter(function(x) is.factor(x) || is.integer(x) || is.logical(x) || is.character(x), df))
+    nms_var <- names(Filter(function(x) is.integer(x) || is.numeric(x) || is.double(x), df))
+    nms_fact <- c("-",nms_fact)
 
-    var_list <- c("-",nms_var)
-    mapping_list_num <- c("No",nms_var)
-    mapping_list_fact <- c("-",nms_fact)
-    mapping_list_all <- c("No",var_names)
-    facet_list_factors <- c(".",nms_fact)
+    # Pre-selection works well when example 1 or 2 is selected, but may interfere with URL-loading 
+    # updateSelectInput(session, "x_var", choices = nms_var, selected = "log2_FoldChange")
+    # updateSelectInput(session, "y_var", choices = nms_var, selected = "minus_log10_pvalue")
     
-    updateSelectInput(session, "x_var", choices = var_list, selected = "log2_FoldChange")
-    updateSelectInput(session, "y_var", choices = var_list, selected = "minus_log10_pvalue")
+    
+    updateSelectInput(session, "x_var", choices = nms_var, selected = x_var.selected)
+    updateSelectInput(session, "y_var", choices = nms_var, selected = y_var.selected)
+    
     # updateSelectInput(session, "map_size", choices = mapping_list_all)
-   updateSelectInput(session, "g_var", choices = mapping_list_fact, selected = "Gene")
+   updateSelectInput(session, "g_var", choices = nms_fact, selected = gene.selected)
 
 
 
@@ -390,21 +393,38 @@ output$data_uploaded <- renderDataTable(
 observe({
   
   
-  ############ ?data ################
+
   
   query <- parseQueryString(session$clientData$url_search)
+  
+  
+  
+  ############ ?url ################
+  
+  if (!is.null(query[['url']])) {
+    # updateRadioButtons(session, "data_input", selected = 5)  
+    updateTextInput(session, "URL", value= query[['url']])
+    observe(print((query[['url']])))
+    # updateTabsetPanel(session, "tabs", selected = "Plot")
+  }
+  
+  ############ ?data ################
+  
   if (!is.null(query[['data']])) {
     presets_data <- query[['data']]
     presets_data <- unlist(strsplit(presets_data,";"))
-    #    observe(print((presets_data)))
+    observe(print((presets_data)))
     
     updateRadioButtons(session, "data_input", selected = presets_data[1])    
-    updateCheckboxInput(session, "tidyInput", value = presets_data[2])
+    # updateCheckboxInput(session, "tidyInput", value = presets_data[2])
     
-    updateSelectInput(session, "x_var", selected = presets_data[3])
-    updateSelectInput(session, "y_var", selected = presets_data[4])    
-    updateSelectInput(session, "g_var", selected = presets_data[5])
+    # updateSelectInput(session, "x_var", selected = presets_data[3])
+    # updateSelectInput(session, "y_var", selected = presets_data[4])    
+    # updateSelectInput(session, "g_var", selected = presets_data[5])
     
+    x_var.selected <- presets_data[3]
+    y_var.selected <- presets_data[4]
+    g_var.selected <- presets_data[5]
     
     if (presets_data[1] == "1" || presets_data[1] == "2") {
       updateTabsetPanel(session, "tabs", selected = "Plot")
@@ -539,7 +559,7 @@ url <- reactive({
   
   base_URL <- paste(sep = "", session$clientData$url_protocol, "//",session$clientData$url_hostname, ":",session$clientData$url_port, session$clientData$url_pathname)
   
-  data <- c(input$data_input, "", input$x_var, input$y_var, input$g_var, "")
+  data <- c(input$data_input, "", input$x_var, input$y_var, input$g_var)
   
   vis <- c(input$pointSize, input$alphaInput, input$fc_cutoff, input$p_cutoff, input$direction)
   
