@@ -72,13 +72,20 @@ ui <- fluidPage(
             
             h4("Annotation of hits"),
             numericInput("top_x", "Number of top hits (0 to hide):", value = 10),
-            textInput("user_gene_list", "Selected hits (names separated by commas, e.g. DOK6,TBX5)", value = ""), 
+            # textInput("user_gene_list2", "Selected hits (names separated by commas, e.g. DOK6,TBX5)", value = ""), 
             
+            selectizeInput(inputId = 'user_gene_list',
+                           label = "Selected hits",
+                           choices = "-",
+                          selected = "-",
+                           multiple = TRUE, # allow for multiple inputs
+                            options = list(create = TRUE)), # if TRUE, allows newly created inputs
+           
             checkboxInput(inputId = "show_table",
                           label = "Show table with hits",
                           value = FALSE),
-            checkboxInput(inputId = "show_labels",
-                          label = "Label hits in the plot",
+            checkboxInput(inputId = "hide_labels",
+                          label = "Hide labels in the plot",
                           value = FALSE),
             # checkboxInput(inputId = "user_selected",
             #               label = "User defined hits",
@@ -296,6 +303,7 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   
   # Session variable - initialize defaults
+  genelist.selected <- ""
   x_var.selected <- "log2_FoldChange"
   y_var.selected <- "minus_log10_pvalue"
   g_var.selected <- "Gene"
@@ -310,11 +318,14 @@ df_upload <- reactive({
       x_var.selected <<- "log2_FoldChange"
       y_var.selected <<- "minus_log10_pvalue"
       gene.selected <<- "Gene"
+      genelist.selected <<- "NUP93"
       data <- df_example
     } else if (input$data_input == 2) {
       x_var.selected <<- "log2_FoldChange"
       y_var.selected <<- "minus_log10_pvalue"
       gene.selected <<- "Gene"
+      genelist.selected <<- "HSPA6"
+      genelist.selected <- ""
       data <- df_example_cdc42
     } else if (input$data_input == 3) {
       file_in <- input$upload
@@ -383,6 +394,8 @@ observe({
     
     # updateSelectInput(session, "map_size", choices = mapping_list_all)
    updateSelectInput(session, "g_var", choices = nms_fact, selected = g_var.selected)
+   
+   updateSelectizeInput(session, "user_gene_list", selected = genelist.selected)
 
 
 
@@ -391,10 +404,6 @@ observe({
 ########### GET INPUT VARIABLEs FROM HTML ##############
 
 observe({
-  
-  
-
-  
   query <- parseQueryString(session$clientData$url_search)
   
   
@@ -461,9 +470,21 @@ observe({
     
     updateNumericInput(session, "top_x", value = presets_can[1])
     updateCheckboxInput(session, "show_table", value = presets_can[2])
-    updateCheckboxInput(session, "show_labels", value= presets_can[3])
+    updateCheckboxInput(session, "hide_labels", value= presets_can[3])
     # updateCheckboxInput(session, "user_selected", value= presets_can[4])
-    updateTextInput(session, "user_gene_list", value= presets_can[4])
+    # updateTextInput(session, "user_gene_list", value= presets_can[4])
+    
+    
+    genelist.selected <<- unlist(strsplit(presets_can[4],","))
+    
+    ############
+    # updateSelectizeInput(session, "user_gene_list", choices = koos$Name)
+    # updateTextInput(session, "user_gene_list2", value= user_list)
+    # 
+    # genelist.selected <<-user_list
+
+    #############
+
   }
   
   
@@ -525,7 +546,7 @@ observe({
     updateNumericInput(session, "fnt_sz_cand", value= presets_label[10])
     updateCheckboxInput(session, "add_legend", value = presets_label[11])    
     # updateTextInput(session, "legend_title", value= presets_label[12])
-    # updateCheckboxInput(session, "show_labels_y", value = presets_label[13])
+    # updateCheckboxInput(session, "hide_labels_y", value = presets_label[13])
     
     #    updateCheckboxInput(session, "add_description", value = presets_label[9])
   }
@@ -561,16 +582,19 @@ url <- reactive({
   
   vis <- c(input$pointSize, input$alphaInput, input$fc_cutoff, input$p_cutoff, input$direction)
   
+
+  #Convert the list of genes to a comma-seperated string  
+  a <- input$user_gene_list
+  a <- paste(a, collapse=",")
+  
   #as.character is necessary; if omitted TRUE is converted to 0 and FALSE to 1 which is undesired
-  can <- c(input$top_x, as.character(input$show_table), input$show_labels, input$user_gene_list)
-  
-  # if (input$user_gene_list!="") {can <- c(can,input$user_gene_list)}
-  
+  can <- c(input$top_x, as.character(input$show_table), input$hide_labels, a)
+
   layout <- c("", "", input$change_scale, input$range_x, input$range_y, input$transform, input$transform_x,
                input$transform_y, "X", input$plot_height, input$plot_width)
   
 
-  label <- c(input$add_title, input$title, input$label_axes, input$lab_x, input$lab_y, input$adj_fnt_sz, input$fnt_sz_title, input$fnt_sz_labs, input$fnt_sz_ax, input$fnt_sz_cand, input$add_legend, input$legend_title, input$show_labels_y)
+  label <- c(input$add_title, input$title, input$label_axes, input$lab_x, input$lab_y, input$adj_fnt_sz, input$fnt_sz_title, input$fnt_sz_labs, input$fnt_sz_ax, input$fnt_sz_cand, input$add_legend, input$legend_title, input$hide_labels_y)
 
   #replace FALSE by "" and convert to string with ; as seperator
   data <- sub("FALSE", "", data)
@@ -649,20 +673,14 @@ observeEvent(input$settings_copy , {
           df <- df %>% filter(Change!="Unchanged")
           
         }
-                
-
-        
+              
         df <- df %>% mutate(`Manhattan distance` = abs(`Significance`)+abs(`Fold change`)) %>% arrange(desc(`Manhattan distance`))
-        
-
-        
+      
         df_out <- df %>% top_n(input$top_x,`Manhattan distance`) %>% select(Name, Change, `Fold change`,`Significance`,`Manhattan distance`)
         
-        if (input$user_gene_list != "") {
-          
-          #Add user selected hits, but remove them when already present
+        #Add user selected hits, but remove them when already present
         df_out <- bind_rows(df_out,df_user()) %>% distinct(Name, .keep_all = TRUE)
-        }
+        # }
         
         # observe({print(df_out)})
         return(df_out)
@@ -671,7 +689,9 @@ observeEvent(input$settings_copy , {
   ################ List of user-selected hits #########
   df_user <- reactive({
     
-    usr_selection <- strsplit(input$user_gene_list,",")[[1]]
+    # usr_selection <- strsplit(input$user_gene_list,",")[[1]]
+    
+    usr_selection <- input$user_gene_list
     
     df <- as.data.frame(df_filtered())
 
@@ -699,7 +719,8 @@ df_filtered <- reactive({
       
     }
     
-
+    #Update the gene list for user selection
+    updateSelectizeInput(session, "user_gene_list", choices = koos$Name, selected = genelist.selected)
     
     if (input$transform_x =="log2") {
       koos <- koos %>% mutate(`Fold change` = log2(`Fold change`))
@@ -809,7 +830,7 @@ plot_data <- reactive({
       NULL
     
     ########## User defined labeling     
-    if (input$show_labels == TRUE) {
+    if (input$hide_labels == FALSE) {
       p <-  p + geom_point(data=df_top(), aes(x=`Fold change`,y=`Significance`), shape=1,color="black", size=(input$pointSize))+
         geom_text_repel(
           data = df_top(),
@@ -825,7 +846,7 @@ plot_data <- reactive({
     }
     # 
     # ########## Top hits labeling 
-    # if (input$show_labels == TRUE) {
+    # if (input$hide_labels == FALSE) {
     #   p <- p + geom_text_repel(
     #     data = df_top(),
     #     aes(label = Name),
@@ -932,7 +953,7 @@ output$coolplot <- renderPlot(width = width, height = height,{
     
 
     ########## User defined labeling     
-    if (input$show_labels == TRUE) {
+    if (input$hide_labels == FALSE) {
       p <-  p + geom_point(data=df_top(), aes(x=`Fold change`,y=`Significance`), shape=1,color="black", size=(input$pointSize))+
         geom_text_repel(
           data = df_top(),
@@ -948,7 +969,7 @@ output$coolplot <- renderPlot(width = width, height = height,{
     }
     # 
     # ########## Top hits labeling 
-    # if (input$show_labels == TRUE) {
+    # if (input$hide_labels == FALSE) {
     #   p <- p + geom_text_repel(
     #     data = df_top(),
     #     aes(label = Name),
