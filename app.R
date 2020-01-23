@@ -325,9 +325,9 @@ df_upload <- reactive({
       y_var.selected <<- "minus_log10_pvalue"
       gene.selected <<- "Gene"
       genelist.selected <<- "HSPA6"
-      genelist.selected <- ""
       data <- df_example_cdc42
     } else if (input$data_input == 3) {
+      genelist.selected <<- ""
       file_in <- input$upload
       # Avoid error message while file is not uploaded yet
       if (is.null(input$upload)) {
@@ -341,6 +341,7 @@ df_upload <- reactive({
       }
       
     } else if (input$data_input == 5) {
+      genelist.selected <<- ""
       
       #Read data from a URL
       #This requires RCurl
@@ -814,11 +815,6 @@ plot_data <- reactive({
       aes(y=`Significance`) +
       geom_point(alpha = input$alphaInput, size = input$pointSize, shape = 16) +
       
-      #Indicate cut-offs with dashed lines
-      geom_vline(xintercept = input$fc_cutoff, linetype="dashed") +
-      geom_vline(xintercept = -input$fc_cutoff, linetype="dashed") +
-      geom_hline(yintercept = input$p_cutoff, linetype="dashed") +  
-      
       # This needs to go here (before annotations)
       theme_light(base_size = 16) +
       aes(color=Change) + 
@@ -828,6 +824,12 @@ plot_data <- reactive({
       theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
       
       NULL
+    
+    #Indicate cut-offs with dashed lines
+    if (input$direction !="decreased")  p <- p + geom_vline(xintercept = input$fc_cutoff, linetype="dashed")
+    if (input$direction !="increased")  p <- p + geom_vline(xintercept = -input$fc_cutoff, linetype="dashed")
+    
+    p <- p + geom_hline(yintercept = input$p_cutoff, linetype="dashed") 
     
     ########## User defined labeling     
     if (input$hide_labels == FALSE) {
