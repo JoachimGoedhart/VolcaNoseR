@@ -22,7 +22,7 @@
 # To implement:
 # Color selection
 # Add PlotLy
-# Select genes from table
+
 
 library(shiny)
 library(ggplot2)
@@ -35,6 +35,8 @@ library(RCurl)
 
 df_example <- read.csv("Data-Vulcano-plot.csv", na.strings = "")
 df_example_cdc42 <- read.csv("elife-45916-Cdc42QL_data.csv", na.strings = "")
+df_example_diffgenes_HFHC <- read.csv("Becares-diffgenes_HFHC.csv", na.strings = "")
+
 
 
 # Create a reactive object here that we can share between all the sessions.
@@ -102,31 +104,29 @@ ui <- fluidPage(
             h4("Transformation & Scaling"),
             
             
-            checkboxInput(inputId = "transform",
-                          label = "Transform the data",
-                          value = FALSE),
+
             
-            conditionalPanel(condition = "input.transform==true",
-                             
-                             radioButtons(
-                               "transform_x", "Transform x-axis data:",
-                               choices =
-                                 list("No" = "No",
-                                      "log2" = "log2",
-                                      "log10" = "log10",
-                                      "-log10" = "minus_log10"),
-                               selected = "No"),
-                             radioButtons(
-                               "transform_y", "Transform y-axis data:",
-                               choices =
-                                 list("No" = "No",
-                                      "log2" = "log2",
-                                      "log10" = "log10",
-                                      "-log10" = "minus_log10"),
-                               selected = "No")
-                             
-                             
-            ),
+            # conditionalPanel(condition = "input.transform==true",
+            #                  
+            #                  radioButtons(
+            #                    "transform_x", "Transform x-axis data:",
+            #                    choices =
+            #                      list("No" = "No",
+            #                           "log2" = "log2",
+            #                           "log10" = "log10",
+            #                           "-log10" = "minus_log10"),
+            #                    selected = "No"),
+            #                  radioButtons(
+            #                    "transform_y", "Transform y-axis data:",
+            #                    choices =
+            #                      list("No" = "No",
+            #                           "log2" = "log2",
+            #                           "log10" = "log10",
+            #                           "-log10" = "minus_log10"),
+            #                    selected = "No")
+            #                  
+            #                  
+            # ),
             
             checkboxInput(inputId = "change_scale",
                           label = "Change scale",
@@ -142,7 +142,9 @@ ui <- fluidPage(
 
             conditionalPanel(
               condition = "input.change_scale == true",
-              textInput("range_y", "Range y-axis (min,max)", value = "")
+              textInput("range_y", "Range y-axis (min,max)", value = ""),            
+              checkboxInput(inputId = "scale_log_10", label = "Log10 scale on y-axis", value = FALSE)
+              
             ),
             numericInput("plot_height", "Plot height (# pixels): ", value = 600),
             numericInput("plot_width", "Plot width (# pixels):", value = 800),
@@ -213,9 +215,9 @@ ui <- fluidPage(
                 selected =  1),
               
               conditionalPanel(
-                condition = "input.data_input=='1'",p('This data was used in a blog to demonstrate how to generate a volcano plot: https://www.gettinggeneticsdone.com/2014/05/r-volcano-plots-to-visualize-rnaseq-microarray.html'),hr()),              
+                condition = "input.data_input=='1'",p('Data of differentially expressed genes in livers of mice on a high-fat-high-cholesterol diet - from figure 4C of Becares et al (2019): https://doi.org/10.1016/j.celrep.2018.12.094'),hr()),              
               conditionalPanel(
-                condition = "input.data_input=='2'",p('Data of potential interactors of Cdc42. Data from Figure 9A of this paper: https://elifesciences.org/articles/45916'),hr()),
+                condition = "input.data_input=='2'",p('Data of potential interactors of Cdc42 - from Figure 9A of Gillingham et al (2019): https://doi.org/10.7554/eLife.45916.001'),hr()),
               
               
               conditionalPanel(
@@ -248,7 +250,42 @@ ui <- fluidPage(
               selectInput("g_var", label = "Select column with names", choices = "-"),
               
 
-              # downloadButton("downloadData", "Download (transformed) data (csv)"),
+              h4("Transformation"),
+              checkboxInput(inputId = "transformation",
+                            label = "Data transformation",
+                            value = FALSE),
+              conditionalPanel(condition = "input.transformation==true",
+                               selectInput("transform_var_x", label = "Transform:", choices = "-"),
+                               
+                               radioButtons(
+                                 "transform_x", NULL,
+                                 choices =
+                                   list("log2" = "log2",
+                                        "log10" = "log10",
+                                        "-log10" = "minus_log10"),
+                                 selected = "log2"),
+
+                                 
+
+                               
+                               selectInput("transform_var_y", label = "Transform:", choices = "-"),
+                               
+                               radioButtons(
+                                 "transform_y", NULL,
+                                 choices =
+                                   list("log2" = "log2",
+                                        "log10" = "log10",
+                                        "-log10" = "minus_log10"),
+                                 selected = "minus_log10"),
+                               
+                               NULL
+                               
+
+              ),
+              conditionalPanel(
+                condition = "input.transformation==true", (downloadButton("downloadTransformedData", "Download transformed data (csv)"))),
+              
+              hr(),
               hr(),
 
               NULL
@@ -307,7 +344,8 @@ server <- function(input, output, session) {
   x_var.selected <- "log2_FoldChange"
   y_var.selected <- "minus_log10_pvalue"
   g_var.selected <- "Gene"
-  
+  # transform_var_x.selected <- "-"
+  # transform_var_y.selected <- "-"  
 
   isolate(vals$count <- vals$count + 1)
   ###### DATA INPUT ###################
@@ -318,16 +356,27 @@ df_upload <- reactive({
       x_var.selected <<- "log2_FoldChange"
       y_var.selected <<- "minus_log10_pvalue"
       gene.selected <<- "Gene"
-      genelist.selected <<- "NUP93"
-      data <- df_example
+      genelist.selected <<- ""
+      updateCheckboxInput(session, "transformation", value = FALSE)
+      transform_var_x.selected <<- "-"
+      transform_var_y.selected <<- "-"
+
+      data <- df_example_diffgenes_HFHC
     } else if (input$data_input == 2) {
       x_var.selected <<- "log2_FoldChange"
       y_var.selected <<- "minus_log10_pvalue"
       gene.selected <<- "Gene"
       genelist.selected <<- "HSPA6"
+      updateCheckboxInput(session, "transformation", value = FALSE)
+      transform_var_x.selected <<- "-"
+      transform_var_y.selected <<- "-"
+
       data <- df_example_cdc42
     } else if (input$data_input == 3) {
       genelist.selected <<- ""
+      updateCheckboxInput(session, "transformation", value = FALSE)
+      transform_var_x.selected <<- "-"
+      transform_var_y.selected <<- "-"
       file_in <- input$upload
       # Avoid error message while file is not uploaded yet
       if (is.null(input$upload)) {
@@ -336,12 +385,15 @@ df_upload <- reactive({
         return(data.frame(x = "Press 'submit datafile' button"))
       } else {
         isolate({
-           data <- read.csv(file=file_in$datapath, sep = input$upload_delim)
+           data <- read.csv(file=file_in$datapath, sep = input$upload_delim, na.strings=c("",".","NA", "NaN"))
         })
       }
       
     } else if (input$data_input == 5) {
       genelist.selected <<- ""
+      updateCheckboxInput(session, "transformation", value = FALSE)
+      transform_var_x.selected <<- "-"
+      transform_var_y.selected <<- "-"
       
       #Read data from a URL
       #This requires RCurl
@@ -364,7 +416,8 @@ df_upload <- reactive({
 output$data_uploaded <- renderDataTable(
     
     #    observe({ print(input$tidyInput) })
-    df_upload(),
+#    df_upload(),
+    df_transformed(),
     rownames = FALSE,
     options = list(pageLength = 20, autoWidth = FALSE,
                    lengthMenu = c(20, 100, 1000, 10000)),
@@ -372,18 +425,43 @@ output$data_uploaded <- renderDataTable(
   )
   
 
-
+  ############## Export Normalized data in tidy format ###########
+  
+  output$downloadTransformedData <- downloadHandler(
+    
+    filename = function() {
+      paste("VolcaNoseR_transformed", ".csv", sep = "")
+    },
+    content = function(file) {
+        write.csv(df_transformed(), file, row.names = FALSE)
+    }
+  )
+  
 
   ##### Get Variables from the input ##############
   
 observe({
+  
+  #Retrieve the currently selected geom and use as default, even when y_var changes
+
+
+  
+  if (input$transformation != TRUE) {
     df <- df_upload()
+  } else if (input$transformation == TRUE) {
+    transform_var_x.selected <<- input$transform_var_x
+    transform_var_y.selected <<- input$transform_var_y
+   df <- df_transformed() 
+  }
+  
+  
     var_names  <- names(df)
 
     # Get the names of columns that are factors. These can be used for coloring the data with discrete colors
     nms_fact <- names(Filter(function(x) is.factor(x) || is.integer(x) || is.logical(x) || is.character(x), df))
     nms_var <- names(Filter(function(x) is.integer(x) || is.numeric(x) || is.double(x), df))
     nms_fact <- c("-",nms_fact)
+
 
     # Pre-selection works well when example 1 or 2 is selected, but may interfere with URL-loading 
     # updateSelectInput(session, "x_var", choices = nms_var, selected = "log2_FoldChange")
@@ -397,8 +475,10 @@ observe({
    updateSelectInput(session, "g_var", choices = nms_fact, selected = g_var.selected)
    
    updateSelectizeInput(session, "user_gene_list", selected = genelist.selected)
-
-
+   
+   updateSelectInput(session, "transform_var_x", choices = c("-",nms_var), selected = transform_var_x.selected)
+   updateSelectInput(session, "transform_var_y", choices = c("-",nms_var), selected = transform_var_y.selected)   
+   
 
   })
   
@@ -407,8 +487,7 @@ observe({
 observe({
   query <- parseQueryString(session$clientData$url_search)
   
-  
-  
+
   ############ ?url ################
   
   if (!is.null(query[['url']])) {
@@ -700,10 +779,50 @@ observeEvent(input$settings_copy , {
 
   })
   
+  ################ LOG TRANSFORM DATA #########
+df_transformed <- reactive({     
+    
+    df <- df_upload()
+    
+    x_transform <- input$transform_var_x
+    y_transform <- input$transform_var_y
+    
+
+    
+    if (input$transform_x =="log2" && x_transform !="-") {
+      log_name <- paste0(input$transform_x,"_",input$transform_var_x)
+      df <- df %>% mutate(!!log_name := log2(df[, x_transform]))
+    } else if (input$transform_x =="log10" && x_transform !="-") {
+      log_name <- paste0(input$transform_x,"_",input$transform_var_x)
+      df <- df %>% mutate(!!log_name := log10(df[, x_transform]))
+    } else if (input$transform_x =="minus_log10" && x_transform !="-") {
+      log_name <- paste0("-Log10_",input$transform_var_x)
+      df <- df %>% mutate(!!log_name := -log10(df[, x_transform]))
+    }
+    
+    if (input$transform_y =="log2" && y_transform !="-") {
+      log_name <- paste0(input$transform_y,"_",input$transform_var_y)
+      df <- df %>% mutate(!!log_name := log2(df[, y_transform]))
+    } else if (input$transform_y =="log10" && y_transform !="-") {
+      log_name <- paste0(input$transform_y,"_",input$transform_var_y)
+      df <- df %>% mutate(!!log_name := log10(df[, y_transform]))
+    } else if (input$transform_y =="minus_log10" && y_transform !="-") {
+      log_name <- paste0("-Log10_",input$transform_var_y)
+      df <- df %>% mutate(!!log_name := -log10(df[, y_transform]))
+    }
+    
+    
+    return(df)
+    
+    
+  })
+  
+  
+  
   ################ SELECT COLUMNS AND ANNOTATE CHANGES #########
 df_filtered <- reactive({     
     
-      df <- df_upload()
+      df <- df_transformed()
 
     x_choice <- input$x_var
     y_choice <- input$y_var
@@ -722,23 +841,7 @@ df_filtered <- reactive({
     
     #Update the gene list for user selection
     updateSelectizeInput(session, "user_gene_list", choices = koos$Name, selected = genelist.selected)
-    
-    if (input$transform_x =="log2") {
-      koos <- koos %>% mutate(`Fold change` = log2(`Fold change`))
-    } else if (input$transform_x =="log10") {
-      koos <- koos %>% mutate(`Fold change` = log10(`Fold change`))
-    } else if (input$transform_x =="minus_log10") {
-      koos <- koos %>% mutate(`Fold change` = -log10(`Fold change`))
-    }
-    
-    
-    if (input$transform_y =="log2") {
-      koos <- koos %>% mutate(`Fold change` = log2(`Fold change`))
-    } else if (input$transform_y =="log10") {
-      koos <- koos %>% mutate(`Fold change` = log10(`Fold change`))
-    } else if (input$transform_y =="minus_log10") {
-      koos <- koos %>% mutate(`Fold change` = -log10(`Fold change`))
-    }
+
       
     foldchange_tr=input$fc_cutoff
     pvalue_tr=input$p_cutoff
@@ -830,6 +933,10 @@ plot_data <- reactive({
     if (input$direction !="increased")  p <- p + geom_vline(xintercept = -input$fc_cutoff, linetype="dashed")
     
     p <- p + geom_hline(yintercept = input$p_cutoff, linetype="dashed") 
+    
+    # if log-scale checked specified
+    if (input$scale_log_10)
+      p <- p + scale_y_log10() 
     
     ########## User defined labeling     
     if (input$hide_labels == FALSE) {
@@ -953,6 +1060,9 @@ output$coolplot <- renderPlot(width = width, height = height,{
     
     p <- p + geom_hline(yintercept = input$p_cutoff, linetype="dashed") 
     
+    # if log-scale checked specified
+    if (input$scale_log_10)
+      p <- p + scale_y_log10() 
 
     ########## User defined labeling     
     if (input$hide_labels == FALSE) {

@@ -13,7 +13,7 @@ Note that the app depends on several R packages that need to be installed (shiny
 
 Run this command in R/Rstudio to download and install all the packages (only needs to be done once):
 ```
-install.packages("shiny", "ggplot2", "dplyr", "magrittr", "readr", "ggrepel", "DT", "shinycssloaders", "RCurl")
+install.packages("shiny", "ggplot2", "dplyr", "magrittr", "ggrepel", "DT", "shinycssloaders", "RCurl")
 ```
 o The first option is running it directly from Github. In the command line (in R or Rstudio) type:
 ```
