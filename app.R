@@ -33,7 +33,7 @@ library(shinycssloaders)
 library(DT)
 library(RCurl)
 
-df_example <- read.csv("Data-Vulcano-plot.csv", na.strings = "")
+#df_example <- read.csv("Data-Vulcano-plot.csv", na.strings = "")
 df_example_cdc42 <- read.csv("elife-45916-Cdc42QL_data.csv", na.strings = "")
 df_example_diffgenes_HFHC <- read.csv("Becares-diffgenes_HFHC.csv", na.strings = "")
 
@@ -67,10 +67,10 @@ ui <- fluidPage(
             sliderInput("alphaInput", "Visibility of the data", 0, 1, 0.8),  
 
             # hr(),
-            h4("Identification & Annotation of hits"),
+            h4("Selection & Annotation of hits"),
             sliderInput("fc_cutoff", "Fold Change threshold:", 0, 5, step=0.1, value = 1.5),
             sliderInput("p_cutoff", "Significance threshold:", 0, 5, step=0.1, value = 2),
-            selectInput("direction", label="Use thresholds to annotate:", choices = list("All (ignores thresholds)"="all", "Changed (&significant)"="significant","Increased (&significant)"="increased", "Decreased (&significant)"="decreased"), selected ="all"),
+            selectInput("direction", label="Use thresholds to annotate:", choices = list("All (ignores thresholds)"="all", "Changed (and significant)"="significant","Increased (and significant)"="increased", "Decreased (and significant)"="decreased"), selected ="all"),
             
             selectInput("criterion", label="Criterion for ranking hits:", choices = list("Manhattan distance"="manh", "Euclidean distance"="euclid","Fold change"="fc","Significance"="sig"), selected ="manh"),
             
@@ -80,7 +80,7 @@ ui <- fluidPage(
             # textInput("user_gene_list2", "Selected hits (names separated by commas, e.g. DOK6,TBX5)", value = ""), 
             
             selectizeInput(inputId = 'user_gene_list',
-                           label = "User selected hits",
+                           label = "User selected hits:",
                            choices = "-",
                           selected = "-",
                            multiple = TRUE, # allow for multiple inputs
@@ -538,7 +538,7 @@ observe({
     updateSliderInput(session, "fc_cutoff", value = presets_vis[3])
     updateSliderInput(session, "p_cutoff", value = presets_vis[4])
     updateSelectInput(session, "direction", selected = presets_vis[5])
-    updateSelectInput(session, "criterion", selected = presets_vis[6])
+    # updateSelectInput(session, "criterion", selected = presets_vis[6])
     
   }
   
@@ -663,9 +663,10 @@ url <- reactive({
   
   data <- c(input$data_input, "", input$x_var, input$y_var, input$g_var)
   
-  vis <- c(input$pointSize, input$alphaInput, input$fc_cutoff, input$p_cutoff, input$direction, input$criterion)
+  # vis <- c(input$pointSize, input$alphaInput, input$fc_cutoff, input$p_cutoff, input$direction, input$criterion)
   
-
+  vis <- c(input$pointSize, input$alphaInput, input$fc_cutoff, input$p_cutoff, input$direction)
+  
   #Convert the list of genes to a comma-seperated string  
   a <- input$user_gene_list
   a <- paste(a, collapse=",")
@@ -761,13 +762,13 @@ observeEvent(input$settings_copy , {
         if (input$criterion == "manh") {    
         df <- df %>% mutate(`Manhattan distance` = abs(`Significance`)+abs(`Fold change`)) %>% arrange(desc(`Manhattan distance`))
         df_out <- df %>% top_n(input$top_x,`Manhattan distance`) %>% select(Name, Change, `Fold change`,`Significance`,`Manhattan distance`)
-        } else if (input$criterion == "euclid") {    
+        } else if (input$criterion == "euclid") {
           df <- df %>% mutate(`Euclidean distance` = sqrt((`Significance`)^2+(`Fold change`)^2)) %>% arrange(desc(`Euclidean distance`))
           df_out <- df %>% top_n(input$top_x,`Euclidean distance`) %>% select(Name, Change, `Fold change`,`Significance`,`Euclidean distance`)
-        } else if (input$criterion == "fc") {    
+        } else if (input$criterion == "fc") {
           df <- df %>% arrange(desc(abs(`Fold change`)))
           df_out <- df %>% top_n(input$top_x,abs(`Fold change`)) %>% select(Name, Change, `Fold change`,`Significance`)
-        } else if (input$criterion == "sig") {    
+        } else if (input$criterion == "sig") {
           df <- df %>% arrange(desc(`Significance`))
           df_out <- df %>% top_n(input$top_x,`Significance`) %>% select(Name, Change, `Fold change`,`Significance`)
         }
