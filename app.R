@@ -42,7 +42,7 @@ df_example_diffgenes_HFHC <- read.csv("Becares-diffgenes_HFHC.csv", na.strings =
 # Create a reactive object here that we can share between all the sessions.
 vals <- reactiveValues(count=0)
 
-# Define UI for application that draws a histogram
+# Define UI
 ui <- fluidPage(
    
    # Application title
@@ -103,6 +103,19 @@ ui <- fluidPage(
             #               NULL   
             # ),
             # 
+            
+            radioButtons("adjustcolors", "Color (Unchanged,Increased,Decreased)", choices = 
+                           list(
+                             "Grey, Red, Blue" = 1,
+                             "Grey, Blue, Green" = 3,
+                             "User defined"=5),
+                         selected =  1),
+            conditionalPanel(condition = "input.adjustcolors == 5",
+                             textInput("user_color_list", "List of names or hexadecimal codes", value = "turquoise2,#FF2222,lawngreen")), 
+            
+            # h5("",
+            #    a("Click here for more info on color names",
+            #      href = "http://www.endmemo.com/program/R/color.php", target="_blank"))
 
             h4("Transformation & Scaling"),
             
@@ -299,7 +312,9 @@ ui <- fluidPage(
             #Session counter: https://gist.github.com/trestletech/9926129
             h4("About"),  "There are currently", 
             verbatimTextOutput("count"),
-            "session(s) connected to this app."  
+            "session(s) connected to this app.",
+            hr(),
+            h4("Find our other dataViz apps at:"),a("https://huygens.science.uva.nl/", href = "https://huygens.science.uva.nl/")
           )
                    
                    
@@ -337,7 +352,7 @@ ui <- fluidPage(
       )   #Close mainPanel
       
 
-   ) #Close sidebarLayout
+   ), #Close sidebarLayout
 ) #Close fluidPage
 
 server <- function(input, output, session) {
@@ -460,7 +475,7 @@ observe({
   
     var_names  <- names(df)
 
-    # Get the names of columns that are factors. These can be used for coloring the data with discrete colors
+    # Get the names of columns that are factors.
     nms_fact <- names(Filter(function(x) is.factor(x) || is.integer(x) || is.logical(x) || is.character(x), df))
     nms_var <- names(Filter(function(x) is.integer(x) || is.numeric(x) || is.double(x), df))
     nms_fact <- c("-",nms_fact)
@@ -1026,6 +1041,46 @@ plot_data <- reactive({
   
 output$coolplot <- renderPlot(width = width, height = height,{
   
+  df <- as.data.frame(df_filtered())
+  #Convert 'Change' to a factor to keep this order, necessary for getting the colors right
+  df$Change <- factor(df$Change, levels=c("Unchanged","Increased","Decreased"))
+
+
+  ########## Determine color use #############
+  newColors <- c("grey", "red", "blue")
+  if (input$adjustcolors == 3) {
+    newColors <- c("Grey80", "darkblue", "darkgreen")
+  }
+  # else if (input$adjustcolors == 4) {
+  #   newColors <- Tol_light
+  # } else if (input$adjustcolors == 6) {
+  #   newColors <- Okabe_Ito
+  # }
+  else if (input$adjustcolors == 5) {
+    newColors <- gsub("\\s","", strsplit(input$user_color_list,",")[[1]])
+    
+    #If unsufficient colors available, repeat
+    if(length(newColors) < 3) {
+      newColors<-rep(newColors,times=(round(3/length(newColors)))+1)
+    }
+    
+    
+  }
+  
+  # Remove the color for category 'increased' when absent
+  if (("Increased" %in% df$Change) == FALSE) {
+    newColors <- newColors[c(1,3)]
+    
+  }
+  
+    # if (input$adjustcolors >1) {
+  #   newColors <- c("black")
+  # }
+  
+  
+  
+  
+  
   ############## Adjust X-scaling if necessary ##########
   
   #Adjust scale if range for x (min,max) is specified
@@ -1048,9 +1103,7 @@ output$coolplot <- renderPlot(width = width, height = height,{
       rng_y <- c(NULL,NULL)
     }
   
-    df <- as.data.frame(df_filtered())
-    #Convert 'Change' to a factor to keep this order, necessary for getting the colors right
-    df$Change <- factor(df$Change, levels=c("Unchanged","Increased","Decreased"))
+
     
     p <-  ggplot(data = df) +
       aes(x=`Fold change`) +
@@ -1062,7 +1115,7 @@ output$coolplot <- renderPlot(width = width, height = height,{
       # This needs to go here (before annotations)
       theme_light(base_size = 16) +
       aes(color=Change) + 
-        scale_color_manual(values=c("grey", "red", "blue")) +
+        scale_color_manual(values=newColors) +
     
       #remove gridlines (if selected
       theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
