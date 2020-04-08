@@ -143,7 +143,9 @@ ui <- fluidPage(
             #                  
             #                  
             # ),
-            
+            checkboxInput(inputId = "rotate_plot",
+                          label = "Rotate plot 90 degrees",
+                          value = FALSE),
             checkboxInput(inputId = "change_scale",
                           label = "Change scale",
                           value = FALSE),
@@ -1000,6 +1002,8 @@ plot_data <- reactive({
     #   
     # }
     p <- p + coord_cartesian(xlim=c(rng_x[1],rng_x[2]),ylim=c(rng_y[1],rng_y[2]))
+    #### If selected, rotate plot 90 degrees CW ####
+    if (input$rotate_plot == TRUE) { p <- p + coord_flip(xlim=c(rng_x[1],rng_x[2]),ylim=c(rng_y[1],rng_y[2]))}
     
     ########## Do some formatting of the lay-out ##########
     
@@ -1164,6 +1168,8 @@ output$coolplot <- renderPlot(width = width, height = height,{
     #   
     # }
     p <- p + coord_cartesian(xlim=c(rng_x[1],rng_x[2]),ylim=c(rng_y[1],rng_y[2]))
+    #### If selected, rotate plot 90 degrees CW ####
+    if (input$rotate_plot == TRUE) { p <- p + coord_flip(xlim=c(rng_x[1],rng_x[2]),ylim=c(rng_y[1],rng_y[2]))}
     ########## Do some formatting of the lay-out ##########
     
     
