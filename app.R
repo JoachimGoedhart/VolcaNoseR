@@ -23,7 +23,6 @@
 # Color selection
 # Add PlotLy
 
-
 library(shiny)
 library(ggplot2)
 library(magrittr)
@@ -68,7 +67,7 @@ ui <- fluidPage(
 
             # hr(),
             h4("Selection & Annotation of hits"),
-            sliderInput("fc_cutoff", "Fold Change threshold:", 0, 5, step=0.1, value = 1.5),
+            sliderInput("fc_cutoff", "Fold Change threshold:", -5, 5, step=0.1, value = c(-1.5,1.5)),
             sliderInput("p_cutoff", "Significance threshold:", 0, 5, step=0.1, value = 2),
             selectInput("direction", label="Use thresholds to annotate:", choices = list("All (ignores thresholds)"="all", "Changed (and significant)"="significant","Increased (and significant)"="increased", "Decreased (and significant)"="decreased"), selected ="all"),
             
@@ -161,7 +160,7 @@ ui <- fluidPage(
             conditionalPanel(
               condition = "input.change_scale == true",
               textInput("range_y", "Range y-axis (min,max)", value = ""),            
-              checkboxInput(inputId = "scale_log_10", label = "Log10 scale on y-axis", value = FALSE)
+              checkboxInput(inputId = "scale_log_10", label = "Log10 scale on y-axis", value = FALSE),
               
             ),
             numericInput("plot_height", "Plot height (# pixels): ", value = 600),
@@ -354,7 +353,7 @@ ui <- fluidPage(
       )   #Close mainPanel
       
 
-   ), #Close sidebarLayout
+   ) #Close sidebarLayout
 ) #Close fluidPage
 
 server <- function(input, output, session) {
@@ -405,7 +404,7 @@ df_upload <- reactive({
         return(data.frame(x = "Press 'submit datafile' button"))
       } else {
         isolate({
-           data <- read.csv(file=file_in$datapath, sep = input$upload_delim, na.strings=c("",".","NA", "NaN"))
+           data <- read.csv(file=file_in$datapath, sep = input$upload_delim, na.strings=c("",".","NA", "NaN", "#N/A"))
         })
       }
       
@@ -552,7 +551,7 @@ observe({
     
     updateSliderInput(session, "pointSize", value = presets_vis[1])
     updateSliderInput(session, "alphaInput", value = presets_vis[2])
-    updateSliderInput(session, "fc_cutoff", value = presets_vis[3])
+    updateSliderInput(session, "fc_cutoff", value = unlist(strsplit(presets_vis[3],",")))
     updateSliderInput(session, "p_cutoff", value = presets_vis[4])
     updateSelectInput(session, "direction", selected = presets_vis[5])
     # updateSelectInput(session, "criterion", selected = presets_vis[6])
@@ -681,8 +680,11 @@ url <- reactive({
   data <- c(input$data_input, "", input$x_var, input$y_var, input$g_var)
   
   # vis <- c(input$pointSize, input$alphaInput, input$fc_cutoff, input$p_cutoff, input$direction, input$criterion)
-  
-  vis <- c(input$pointSize, input$alphaInput, input$fc_cutoff, input$p_cutoff, input$direction)
+  #Convert upper/lower boundary to comma seperated values
+  fc <- input$fc_cutoff
+  fc <- paste(fc, collapse=",")
+
+    vis <- c(input$pointSize, input$alphaInput, fc, input$p_cutoff, input$direction)
   
   #Convert the list of genes to a comma-seperated string  
   a <- input$user_gene_list
@@ -875,7 +877,9 @@ df_filtered <- reactive({
     updateSelectizeInput(session, "user_gene_list", choices = koos$Name, selected = genelist.selected)
 
       
-    foldchange_tr=input$fc_cutoff
+    foldchange_min=input$fc_cutoff[1]
+    foldchange_max=input$fc_cutoff[2]
+
     pvalue_tr=input$p_cutoff
 
 ##    koos <- koos %>%mutate(Change = ifelse((foldchange >= foldchange_tr && pvalue >= pvalue_tr ),"Increased", ifelse(foldchange<=-foldchange_tr , "Decreased", "Unchanged")))
@@ -883,20 +887,20 @@ df_filtered <- reactive({
     if (input$direction =="decreased") {
       koos <- koos %>%mutate(
         Change = case_when(
-          `Fold change` < -foldchange_tr & `Significance` > pvalue_tr ~ "Decreased",
+          `Fold change` < foldchange_min & `Significance` > pvalue_tr ~ "Decreased",
           TRUE ~ "Unchanged")
       )
     } else if (input$direction =="increased") {
       koos <- koos %>%mutate(
         Change = case_when(
-          `Fold change` > foldchange_tr & `Significance` > pvalue_tr ~ "Increased",
+          `Fold change` > foldchange_max & `Significance` > pvalue_tr ~ "Increased",
           TRUE ~ "Unchanged")
       )
     } else {
     koos <- koos %>%mutate(
            Change = case_when(
-             `Fold change` > foldchange_tr & `Significance` > pvalue_tr ~ "Increased",
-             `Fold change` < -foldchange_tr & `Significance` > pvalue_tr ~ "Decreased",
+             `Fold change` > foldchange_max & `Significance` > pvalue_tr ~ "Increased",
+             `Fold change` < foldchange_min & `Significance` > pvalue_tr ~ "Decreased",
              TRUE ~ "Unchanged")
           )
     }
@@ -961,8 +965,8 @@ plot_data <- reactive({
       NULL
     
     #Indicate cut-offs with dashed lines
-    if (input$direction !="decreased")  p <- p + geom_vline(xintercept = input$fc_cutoff, linetype="dashed")
-    if (input$direction !="increased")  p <- p + geom_vline(xintercept = -input$fc_cutoff, linetype="dashed")
+    if (input$direction !="decreased")  p <- p + geom_vline(xintercept = input$fc_cutoff[2], linetype="dashed")
+    if (input$direction !="increased")  p <- p + geom_vline(xintercept = input$fc_cutoff[1], linetype="dashed")
     
     p <- p + geom_hline(yintercept = input$p_cutoff, linetype="dashed") 
     
@@ -1127,8 +1131,8 @@ output$coolplot <- renderPlot(width = width, height = height,{
       NULL
     
     #Indicate cut-offs with dashed lines
-    if (input$direction !="decreased")  p <- p + geom_vline(xintercept = input$fc_cutoff, linetype="dashed")
-    if (input$direction !="increased")  p <- p + geom_vline(xintercept = -input$fc_cutoff, linetype="dashed")
+    if (input$direction !="decreased")  p <- p + geom_vline(xintercept = input$fc_cutoff[2], linetype="dashed")
+    if (input$direction !="increased")  p <- p + geom_vline(xintercept = input$fc_cutoff[1], linetype="dashed")
     
     p <- p + geom_hline(yintercept = input$p_cutoff, linetype="dashed") 
     

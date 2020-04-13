@@ -1,0 +1,13 @@
+name: VolcaNoseR
+title: VolcaNoseR
+username:
+account: goedhart
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 1844600
+bundleId: 3003945
+url: https://goedhart.shinyapps.io/VolcaNoseR/
+when: 1586717745.82423
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: .gitattributes|LICENSE|README.md|VolcaNoseR_example1.png|VolcaNoseR_example2.png
