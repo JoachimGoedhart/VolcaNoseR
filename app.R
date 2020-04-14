@@ -267,42 +267,42 @@ ui <- fluidPage(
               selectInput("g_var", label = "Select column with names", choices = "-"),
               
 
-              h4("Transformation"),
-              checkboxInput(inputId = "transformation",
-                            label = "Data transformation",
-                            value = FALSE),
-              conditionalPanel(condition = "input.transformation==true",
-                               selectInput("transform_var_x", label = "Transform:", choices = "-"),
-                               
-                               radioButtons(
-                                 "transform_x", NULL,
-                                 choices =
-                                   list("log2" = "log2",
-                                        "log10" = "log10",
-                                        "-log10" = "minus_log10"),
-                                 selected = "log2"),
-
-                                 
-
-                               
-                               selectInput("transform_var_y", label = "Transform:", choices = "-"),
-                               
-                               radioButtons(
-                                 "transform_y", NULL,
-                                 choices =
-                                   list("log2" = "log2",
-                                        "log10" = "log10",
-                                        "-log10" = "minus_log10"),
-                                 selected = "minus_log10"),
-                               
-                               NULL
-                               
-
-              ),
-              conditionalPanel(
-                condition = "input.transformation==true", (downloadButton("downloadTransformedData", "Download transformed data (csv)"))),
-              
-              hr(),
+              # h4("Transformation"),
+              # checkboxInput(inputId = "transformation",
+              #               label = "Data transformation",
+              #               value = FALSE),
+              # conditionalPanel(condition = "input.transformation==true",
+              #                  selectInput("transform_var_x", label = "Transform:", choices = "-"),
+              #                  
+              #                  radioButtons(
+              #                    "transform_x", NULL,
+              #                    choices =
+              #                      list("log2" = "log2",
+              #                           "log10" = "log10",
+              #                           "-log10" = "minus_log10"),
+              #                    selected = "log2"),
+              # 
+              #                    
+              # 
+              #                  
+              #                  selectInput("transform_var_y", label = "Transform:", choices = "-"),
+              #                  
+              #                  radioButtons(
+              #                    "transform_y", NULL,
+              #                    choices =
+              #                      list("log2" = "log2",
+              #                           "log10" = "log10",
+              #                           "-log10" = "minus_log10"),
+              #                    selected = "minus_log10"),
+              #                  
+              #                  NULL
+              #                  
+              # 
+              # ),
+              # conditionalPanel(
+              #   condition = "input.transformation==true", (downloadButton("downloadTransformedData", "Download transformed data (csv)"))),
+              # 
+              # hr(),
               hr(),
 
               NULL
@@ -376,9 +376,9 @@ df_upload <- reactive({
       y_var.selected <<- "minus_log10_pvalue"
       gene.selected <<- "Gene"
       genelist.selected <<- ""
-      updateCheckboxInput(session, "transformation", value = FALSE)
-      transform_var_x.selected <<- "-"
-      transform_var_y.selected <<- "-"
+      # updateCheckboxInput(session, "transformation", value = FALSE)
+      # transform_var_x.selected <<- "-"
+      # transform_var_y.selected <<- "-"
 
       data <- df_example_diffgenes_HFHC
     } else if (input$data_input == 2) {
@@ -386,16 +386,16 @@ df_upload <- reactive({
       y_var.selected <<- "minus_log10_pvalue"
       gene.selected <<- "Gene"
       genelist.selected <<- "HSPA6"
-      updateCheckboxInput(session, "transformation", value = FALSE)
-      transform_var_x.selected <<- "-"
-      transform_var_y.selected <<- "-"
+      # updateCheckboxInput(session, "transformation", value = FALSE)
+      # transform_var_x.selected <<- "-"
+      # transform_var_y.selected <<- "-"
 
       data <- df_example_cdc42
     } else if (input$data_input == 3) {
       genelist.selected <<- ""
-      updateCheckboxInput(session, "transformation", value = FALSE)
-      transform_var_x.selected <<- "-"
-      transform_var_y.selected <<- "-"
+      # updateCheckboxInput(session, "transformation", value = FALSE)
+      # transform_var_x.selected <<- "-"
+      # transform_var_y.selected <<- "-"
       file_in <- input$upload
       # Avoid error message while file is not uploaded yet
       if (is.null(input$upload)) {
@@ -410,9 +410,9 @@ df_upload <- reactive({
       
     } else if (input$data_input == 5) {
       genelist.selected <<- ""
-      updateCheckboxInput(session, "transformation", value = FALSE)
-      transform_var_x.selected <<- "-"
-      transform_var_y.selected <<- "-"
+      # updateCheckboxInput(session, "transformation", value = FALSE)
+      # transform_var_x.selected <<- "-"
+      # transform_var_y.selected <<- "-"
       
       #Read data from a URL
       #This requires RCurl
@@ -435,8 +435,8 @@ df_upload <- reactive({
 output$data_uploaded <- renderDataTable(
     
     #    observe({ print(input$tidyInput) })
-#    df_upload(),
-    df_transformed(),
+    df_upload(),
+    # df_transformed(),
     rownames = FALSE,
     options = list(pageLength = 20, autoWidth = FALSE,
                    lengthMenu = c(20, 100, 1000, 10000)),
@@ -446,15 +446,15 @@ output$data_uploaded <- renderDataTable(
 
   ############## Export Normalized data in tidy format ###########
   
-  output$downloadTransformedData <- downloadHandler(
-    
-    filename = function() {
-      paste("VolcaNoseR_transformed", ".csv", sep = "")
-    },
-    content = function(file) {
-        write.csv(df_transformed(), file, row.names = FALSE)
-    }
-  )
+  # output$downloadTransformedData <- downloadHandler(
+  #   
+  #   filename = function() {
+  #     paste("VolcaNoseR_transformed", ".csv", sep = "")
+  #   },
+  #   content = function(file) {
+  #       write.csv(df_transformed(), file, row.names = FALSE)
+  #   }
+  # )
   
 
   ##### Get Variables from the input ##############
@@ -465,13 +465,13 @@ observe({
 
 
   
-  if (input$transformation != TRUE) {
+  # if (input$transformation != TRUE) {
     df <- df_upload()
-  } else if (input$transformation == TRUE) {
-    transform_var_x.selected <<- input$transform_var_x
-    transform_var_y.selected <<- input$transform_var_y
-   df <- df_transformed() 
-  }
+  # } else if (input$transformation == TRUE) {
+  #   transform_var_x.selected <<- input$transform_var_x
+  #   transform_var_y.selected <<- input$transform_var_y
+  #  df <- df_transformed() 
+  # }
   
   
     var_names  <- names(df)
@@ -495,8 +495,8 @@ observe({
    
    updateSelectizeInput(session, "user_gene_list", selected = genelist.selected)
    
-   updateSelectInput(session, "transform_var_x", choices = c("-",nms_var), selected = transform_var_x.selected)
-   updateSelectInput(session, "transform_var_y", choices = c("-",nms_var), selected = transform_var_y.selected)   
+   # updateSelectInput(session, "transform_var_x", choices = c("-",nms_var), selected = transform_var_x.selected)
+   # updateSelectInput(session, "transform_var_y", choices = c("-",nms_var), selected = transform_var_y.selected)   
    
 
   })
@@ -602,8 +602,8 @@ observe({
     updateTextInput(session, "range_x", value= presets_layout[4])
     updateTextInput(session, "range_y", value= presets_layout[5])
     updateCheckboxInput(session, "transform", value = presets_layout[6])
-    updateRadioButtons(session, "transform_x", selected = presets_layout[7])
-    updateRadioButtons(session, "transform_y", selected = presets_layout[8])    
+    # updateRadioButtons(session, "transform_x", selected = presets_layout[7])
+    # updateRadioButtons(session, "transform_y", selected = presets_layout[8])    
     #    updateCheckboxInput(session, "add_description", value = presets_layout[9])
     if (length(presets_layout)>10) {
       updateNumericInput(session, "plot_height", value= presets_layout[10])
@@ -693,8 +693,7 @@ url <- reactive({
   #as.character is necessary; if omitted TRUE is converted to 0 and FALSE to 1 which is undesired
   can <- c(input$top_x, as.character(input$show_table), input$hide_labels, a)
 
-  layout <- c("", "", input$change_scale, input$range_x, input$range_y, input$transform, input$transform_x,
-               input$transform_y, "X", input$plot_height, input$plot_width)
+  layout <- c("", "", input$change_scale, input$range_x, input$range_y, "X", input$plot_height, input$plot_width)
   
 
   label <- c(input$add_title, input$title, input$label_axes, input$lab_x, input$lab_y, input$adj_fnt_sz, input$fnt_sz_title, input$fnt_sz_labs, input$fnt_sz_ax, input$fnt_sz_cand, input$add_legend, input$legend_title, input$hide_labels_y)
@@ -814,49 +813,49 @@ observeEvent(input$settings_copy , {
   })
   
   ################ LOG TRANSFORM DATA #########
-df_transformed <- reactive({     
-    
-    df <- df_upload()
-    
-    x_transform <- input$transform_var_x
-    y_transform <- input$transform_var_y
-    
-
-    
-    if (input$transform_x =="log2" && x_transform !="-") {
-      log_name <- paste0(input$transform_x,"_",input$transform_var_x)
-      df <- df %>% mutate(!!log_name := log2(df[, x_transform]))
-    } else if (input$transform_x =="log10" && x_transform !="-") {
-      log_name <- paste0(input$transform_x,"_",input$transform_var_x)
-      df <- df %>% mutate(!!log_name := log10(df[, x_transform]))
-    } else if (input$transform_x =="minus_log10" && x_transform !="-") {
-      log_name <- paste0("-Log10_",input$transform_var_x)
-      df <- df %>% mutate(!!log_name := -log10(df[, x_transform]))
-    }
-    
-    if (input$transform_y =="log2" && y_transform !="-") {
-      log_name <- paste0(input$transform_y,"_",input$transform_var_y)
-      df <- df %>% mutate(!!log_name := log2(df[, y_transform]))
-    } else if (input$transform_y =="log10" && y_transform !="-") {
-      log_name <- paste0(input$transform_y,"_",input$transform_var_y)
-      df <- df %>% mutate(!!log_name := log10(df[, y_transform]))
-    } else if (input$transform_y =="minus_log10" && y_transform !="-") {
-      log_name <- paste0("-Log10_",input$transform_var_y)
-      df <- df %>% mutate(!!log_name := -log10(df[, y_transform]))
-    }
-    
-    
-    return(df)
-    
-    
-  })
+# df_transformed <- reactive({     
+#     
+#     df <- df_upload()
+#     
+#     x_transform <- input$transform_var_x
+#     y_transform <- input$transform_var_y
+#     
+# 
+#     
+#     if (input$transform_x =="log2" && x_transform !="-") {
+#       log_name <- paste0(input$transform_x,"_",input$transform_var_x)
+#       df <- df %>% mutate(!!log_name := log2(df[, x_transform]))
+#     } else if (input$transform_x =="log10" && x_transform !="-") {
+#       log_name <- paste0(input$transform_x,"_",input$transform_var_x)
+#       df <- df %>% mutate(!!log_name := log10(df[, x_transform]))
+#     } else if (input$transform_x =="minus_log10" && x_transform !="-") {
+#       log_name <- paste0("-Log10_",input$transform_var_x)
+#       df <- df %>% mutate(!!log_name := -log10(df[, x_transform]))
+#     }
+#     
+#     if (input$transform_y =="log2" && y_transform !="-") {
+#       log_name <- paste0(input$transform_y,"_",input$transform_var_y)
+#       df <- df %>% mutate(!!log_name := log2(df[, y_transform]))
+#     } else if (input$transform_y =="log10" && y_transform !="-") {
+#       log_name <- paste0(input$transform_y,"_",input$transform_var_y)
+#       df <- df %>% mutate(!!log_name := log10(df[, y_transform]))
+#     } else if (input$transform_y =="minus_log10" && y_transform !="-") {
+#       log_name <- paste0("-Log10_",input$transform_var_y)
+#       df <- df %>% mutate(!!log_name := -log10(df[, y_transform]))
+#     }
+#     
+#     
+#     return(df)
+#     
+#     
+#   })
   
   
   
   ################ SELECT COLUMNS AND ANNOTATE CHANGES #########
 df_filtered <- reactive({     
     
-      df <- df_transformed()
+      df <- df_upload()
 
     x_choice <- input$x_var
     y_choice <- input$y_var
