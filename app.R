@@ -69,7 +69,7 @@ ui <- fluidPage(
             h4("Selection & Annotation of hits"),
             sliderInput("fc_cutoff", "Fold Change threshold:", -5, 5, step=0.1, value = c(-1.5,1.5)),
             sliderInput("p_cutoff", "Significance threshold:", 0, 5, step=0.1, value = 2),
-            selectInput("direction", label="Use thresholds to annotate:", choices = list("All (ignores thresholds)"="all", "Changed (and significant)"="significant","Increased (and significant)"="increased", "Decreased (and significant)"="decreased"), selected ="all"),
+            selectInput("direction", label="Use thresholds to annotate:", choices = list("All (ignores thresholds)"="all", "Changed (and significant)"="significant","Increased (and significant)"="increased", "Decreased (and significant)"="decreased"), selected ="significant"),
             
             selectInput("criterion", label="Criterion for ranking hits:", choices = list("Manhattan distance"="manh", "Euclidean distance"="euclid","Fold change"="fc","Significance"="sig"), selected ="manh"),
             
@@ -554,7 +554,7 @@ observe({
     updateSliderInput(session, "fc_cutoff", value = unlist(strsplit(presets_vis[3],",")))
     updateSliderInput(session, "p_cutoff", value = presets_vis[4])
     updateSelectInput(session, "direction", selected = presets_vis[5])
-    # updateSelectInput(session, "criterion", selected = presets_vis[6])
+    updateSelectInput(session, "criterion", selected = presets_vis[6])
     
   }
   
@@ -573,21 +573,11 @@ observe({
     # updateCheckboxInput(session, "user_selected", value= presets_can[4])
     # updateTextInput(session, "user_gene_list", value= presets_can[4])
     
-    
     genelist.selected <<- unlist(strsplit(presets_can[4],","))
-    
-    ############
-    # updateSelectizeInput(session, "user_gene_list", choices = koos$Name)
-    # updateTextInput(session, "user_gene_list2", value= user_list)
-    # 
-    # genelist.selected <<-user_list
-
-    #############
 
   }
   
-  
-  
+
   ############ ?layout ################
   
   if (!is.null(query[['layout']])) {
@@ -596,32 +586,33 @@ observe({
     presets_layout <- unlist(strsplit(presets_layout,";"))
     # observe(print((presets_layout)))
     
+    updateCheckboxInput(session, "rotate_plot", value = presets_layout[1])
     # updateCheckboxInput(session, "no_grid", value = (presets_layout[2]))
     
     updateCheckboxInput(session, "change_scale", value = presets_layout[3])
     updateTextInput(session, "range_x", value= presets_layout[4])
     updateTextInput(session, "range_y", value= presets_layout[5])
-    updateCheckboxInput(session, "transform", value = presets_layout[6])
+    # updateCheckboxInput(session, "transform", value = presets_layout[6])
     # updateRadioButtons(session, "transform_x", selected = presets_layout[7])
     # updateRadioButtons(session, "transform_y", selected = presets_layout[8])    
     #    updateCheckboxInput(session, "add_description", value = presets_layout[9])
-    if (length(presets_layout)>10) {
-      updateNumericInput(session, "plot_height", value= presets_layout[10])
-      updateNumericInput(session, "plot_width", value= presets_layout[11])
+    if ((presets_layout[6])=='X') {
+      updateNumericInput(session, "plot_height", value= presets_layout[7])
+      updateNumericInput(session, "plot_width", value= presets_layout[8])
     }
     #  updateTabsetPanel(session, "tabs", selected = "Plot")
   }
   
   ############ ?color ################
   
-  # if (!is.null(query[['color']])) {
-  #   
-  #   presets_color <- query[['color']]
-  #   presets_color <- unlist(strsplit(presets_color,";"))
-  #   
-  #   updateSelectInput(session, "colour_list", selected = presets_color[1])
-  #   updateTextInput(session, "user_color_list", value= presets_color[2])
-  # }
+  if (!is.null(query[['color']])) {
+
+    presets_color <- query[['color']]
+    presets_color <- unlist(strsplit(presets_color,";"))
+
+    updateSelectInput(session, "adjustcolors", selected = presets_color[1])
+    updateTextInput(session, "user_color_list", value= presets_color[2])
+  }
   
   ############ ?label ################
   
@@ -645,9 +636,8 @@ observe({
     updateNumericInput(session, "fnt_sz_cand", value= presets_label[10])
     updateCheckboxInput(session, "add_legend", value = presets_label[11])    
     # updateTextInput(session, "legend_title", value= presets_label[12])
-    # updateCheckboxInput(session, "hide_labels_y", value = presets_label[13])
-    
-    #    updateCheckboxInput(session, "add_description", value = presets_label[9])
+
+
   }
   
 
@@ -684,7 +674,7 @@ url <- reactive({
   fc <- input$fc_cutoff
   fc <- paste(fc, collapse=",")
 
-    vis <- c(input$pointSize, input$alphaInput, fc, input$p_cutoff, input$direction)
+    vis <- c(input$pointSize, input$alphaInput, fc, input$p_cutoff, input$direction, input$criterion)
   
   #Convert the list of genes to a comma-seperated string  
   a <- input$user_gene_list
@@ -693,8 +683,16 @@ url <- reactive({
   #as.character is necessary; if omitted TRUE is converted to 0 and FALSE to 1 which is undesired
   can <- c(input$top_x, as.character(input$show_table), input$hide_labels, a)
 
-  layout <- c("", "", input$change_scale, input$range_x, input$range_y, "X", input$plot_height, input$plot_width)
+  layout <- c(input$rotate_plot, "", input$change_scale, input$range_x, input$range_y, "X", input$plot_height, input$plot_width)
   
+  #Hide the standard list of colors if it is'nt used
+  if (input$adjustcolors != "5") {
+    color <- c(input$adjustcolors, "none")
+  } else if (input$adjustcolors == "5") {
+    color <- c(input$adjustcolors, input$user_color_list)
+  }
+  
+  ############ COLOR ##########
 
   label <- c(input$add_title, input$title, input$label_axes, input$lab_x, input$lab_y, input$adj_fnt_sz, input$fnt_sz_title, input$fnt_sz_labs, input$fnt_sz_ax, input$fnt_sz_cand, input$add_legend, input$legend_title, input$hide_labels_y)
 
@@ -717,9 +715,9 @@ url <- reactive({
   layout <- paste(layout, collapse=";")
   layout <- paste0("layout=", layout)
   # 
-  # color <- sub("FALSE", "", color)
-  # color <- paste(color, collapse=";")
-  # color <- paste0("color=", color) 
+  color <- sub("FALSE", "", color)
+  color <- paste(color, collapse=";")
+  color <- paste0("color=", color)
   
   label <- sub("FALSE", "", label)
   label <- paste(label, collapse=";")
@@ -733,12 +731,12 @@ url <- reactive({
   
   # parameters <- paste(data, vis,layout,color,label,stim,url, sep="&")
   
-  parameters <- paste(data,vis,can,layout,label,url, sep="&")
+  parameters <- paste(data,vis,can,layout,color,label,url, sep="&")
 
   
     preset_URL <- paste(base_URL, parameters, sep="?")
   
-  # observe(print(parameters))
+  observe(print(parameters))
   # observe(print(preset_URL))  
   return(preset_URL)
 })
