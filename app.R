@@ -19,6 +19,9 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+# Allow files up to 10 Mb
+options(shiny.maxRequestSize=10*1024^2)
+
 # To implement:
 # Color selection
 # Add PlotLy
@@ -404,7 +407,7 @@ df_upload <- reactive({
         return(data.frame(x = "Press 'submit datafile' button"))
       } else {
         isolate({
-           data <- read.csv(file=file_in$datapath, sep = input$upload_delim, na.strings=c("",".","NA", "NaN", "#N/A"))
+           data <- read.csv(file=file_in$datapath, sep = input$upload_delim, na.strings=c("",".","NA", "NaN", "#N/A", "#VALUE!"))
         })
       }
       
@@ -417,7 +420,7 @@ df_upload <- reactive({
       #Read data from a URL
       #This requires RCurl
       if(input$URL == "") {
-        return(data.frame(x = "Enter a full HTML address, for example: https://raw.githubusercontent.com/JoachimGoedhart/VolcaNoseR/master/elife-45916-Cdc42QL_data.csv"))
+        return(data.frame(x = "Enter a full HTML address, for example: https://zenodo.org/record/3713174/files/CSV_1-GFP-CSB-WT_vs_GFP-NLS.csv"))
       } else if (url.exists(input$URL) == FALSE) {
         return(data.frame(x = paste("Not a valid URL: ",input$URL)))
       } else {data <- read.csv(input$URL)}
