@@ -4,9 +4,13 @@ A Shiny App for making Volcano plots
 
 ### Running the App
 
-The web-tool runs from a shiny server, and can be accessed at: [https://huygens.science.uva.nl/VolcaNoseR/](https://huygens.science.uva.nl/VolcaNoseR/)
+The web-tool runs from a shiny server, and can be accessed at:
 
-Alternatively, the app can run from R/Rstudio.
+o [https://huygens.science.uva.nl/VolcaNoseR/](https://huygens.science.uva.nl/VolcaNoseR/)
+
+o [https://goedhart.shinyapps.io/VolcaNoseR/](https://goedhart.shinyapps.io/VolcaNoseR/), while bandwidth lasts
+
+Alternatively, the app can run from R/Rstudio and this is perhaps the best option for loading large files. See instructions below
 
 #### Preparations
 Note that the app depends on several R packages that need to be installed (shiny, ggplot2, dplyr, magrittr, ggrepel, DT, shinycssloaders, RCurl). 
