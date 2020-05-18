@@ -22,9 +22,7 @@
 # Allow files up to 10 Mb
 options(shiny.maxRequestSize=10*1024^2)
 
-# To implement:
-# Color selection
-# Add PlotLy
+#Load necessary packages
 
 library(shiny)
 library(ggplot2)
@@ -32,14 +30,13 @@ library(magrittr)
 library(dplyr)
 library(ggrepel)
 library(shinycssloaders)
+library(readxl)
 library(DT)
 library(RCurl)
 
 #df_example <- read.csv("Data-Vulcano-plot.csv", na.strings = "")
 df_example_cdc42 <- read.csv("elife-45916-Cdc42QL_data.csv", na.strings = "")
 df_example_diffgenes_HFHC <- read.csv("Becares-diffgenes_HFHC.csv", na.strings = "")
-
-
 
 # Create a reactive object here that we can share between all the sessions.
 vals <- reactiveValues(count=0)
@@ -163,7 +160,7 @@ ui <- fluidPage(
             conditionalPanel(
               condition = "input.change_scale == true",
               textInput("range_y", "Range y-axis (min,max)", value = ""),            
-              checkboxInput(inputId = "scale_log_10", label = "Log10 scale on y-axis", value = FALSE),
+              checkboxInput(inputId = "scale_log_10", label = "Log10 scale on y-axis", value = FALSE)
               
             ),
             numericInput("plot_height", "Plot height (# pixels): ", value = 600),
@@ -228,8 +225,8 @@ ui <- fluidPage(
                 choices = 
                   list("Example data 1" = 1,
                        "Example data 2" = 2,
-                       "Upload TXT or CSV file" = 3,
-                       "URL (csv files only)" = 5
+                       "Upload file (CSV, text, excel)" = 3,
+                       "URL (CSV files only)" = 5
                   )
                 ,
                 selected =  1),
@@ -243,17 +240,31 @@ ui <- fluidPage(
               conditionalPanel(
                 condition = "input.data_input=='3'",
         
-                fileInput("upload", NULL, multiple = FALSE),
-
+                fileInput("upload", NULL, multiple = FALSE, accept = c(".xlsx", ".xls", ".txt", ".csv")),
+                selectInput("file_type", "Type of file:",
+                            list(".csv or .txt" = "text",
+                                 ".xls or .xlsx" = "excel"
+                            ),
+                            selected = "text"),
+                conditionalPanel(
+                  condition = "input.file_type!='excel'",
                   radioButtons(
                     "upload_delim", "Delimiter",
                     choices =
                       list("Comma" = ",",
                            "Tab" = "\t",
                            "Semicolon" = ";",
-                           "Space" = " "),
-                    selected = ","),          actionButton("submit_datafile_button",
-                                                           "Submit datafile")
+                           "Space" = " ")),
+                    selected = ","),         
+                
+                conditionalPanel(
+                  condition = "input.file_type=='excel'",
+                  selectInput("sheet", label = "Select sheet:", choices = " ")
+
+                ),
+                
+                
+                actionButton("submit_datafile_button", "Submit datafile")
 
                 ),
               ### csv via URL as input      
@@ -366,6 +377,8 @@ server <- function(input, output, session) {
   x_var.selected <- "log2_FoldChange"
   y_var.selected <- "minus_log10_pvalue"
   g_var.selected <- "Gene"
+  sheet.selected <- " "
+  
   # transform_var_x.selected <- "-"
   # transform_var_y.selected <- "-"  
 
@@ -407,7 +420,31 @@ df_upload <- reactive({
         return(data.frame(x = "Press 'submit datafile' button"))
       } else {
         isolate({
-           data <- read.csv(file=file_in$datapath, sep = input$upload_delim, na.strings=c("",".","NA", "NaN", "#N/A", "#VALUE!"))
+           # data <- read.csv(file=file_in$datapath, sep = input$upload_delim, na.strings=c("",".","NA", "NaN", "#N/A", "#VALUE!"))
+          
+          if (input$file_type == "text") {
+            data <- read.csv(file=file_in$datapath, sep = input$upload_delim, na.strings=c("",".","NA", "NaN", "#N/A", "#VALUE!"))
+          } else if (input$file_type == "excel") {
+            names <- excel_sheets(path = input$upload$datapath)
+            # updateSelectInput(session, "sheet_names", choices = names)
+            sheet.selected <<- input$sheet 
+            updateSelectInput(session, "sheet", choices = names, selected = sheet.selected)
+
+            if (input$sheet %in% names)
+            {
+              n <- which(names==input$sheet)
+              # sheet.selected <<- input$sheet 
+            } else {
+              n <- 1
+              #Ensures update and selection of first sheet upon loading the data
+              updateSelectInput(session, "sheet", choices = names)
+            }
+            
+            # names <- excel_sheets(path = input$upload$datapath)
+            # updateSelectInput(session, "sheet_names", choices = names)
+            data <- read_excel(file_in$datapath, sheet = n , na = c("",".","NA", "NaN", "#N/A", "#VALUE!"))
+          } 
+          
         })
       }
       
@@ -503,6 +540,7 @@ observe({
    
 
   })
+  
   
 ########### GET INPUT VARIABLEs FROM HTML ##############
 
