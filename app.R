@@ -832,17 +832,17 @@ observeEvent(input$settings_copy , {
          
         
         if (input$criterion == "manh") {    
-        df <- df %>% mutate(`Manhattan distance` = abs(`Significance`)+abs(`Fold change`)) %>% arrange(desc(`Manhattan distance`))
-        df_out <- df %>% top_n(input$top_x,`Manhattan distance`) %>% select(Name, Change, `Fold change`,`Significance`,`Manhattan distance`)
+        df <- df %>% mutate(`Manhattan distance` = abs(`Significance`)+abs(`Fold change (log2)`)) %>% arrange(desc(`Manhattan distance`))
+        df_out <- df %>% top_n(input$top_x,`Manhattan distance`) %>% select(Name, Change, `Fold change (log2)`,`Significance`,`Manhattan distance`)
         } else if (input$criterion == "euclid") {
-          df <- df %>% mutate(`Euclidean distance` = sqrt((`Significance`)^2+(`Fold change`)^2)) %>% arrange(desc(`Euclidean distance`))
-          df_out <- df %>% top_n(input$top_x,`Euclidean distance`) %>% select(Name, Change, `Fold change`,`Significance`,`Euclidean distance`)
+          df <- df %>% mutate(`Euclidean distance` = sqrt((`Significance`)^2+(`Fold change (log2)`)^2)) %>% arrange(desc(`Euclidean distance`))
+          df_out <- df %>% top_n(input$top_x,`Euclidean distance`) %>% select(Name, Change, `Fold change (log2)`,`Significance`,`Euclidean distance`)
         } else if (input$criterion == "fc") {
-          df <- df %>% arrange(desc(abs(`Fold change`)))
-          df_out <- df %>% top_n(input$top_x,abs(`Fold change`)) %>% select(Name, Change, `Fold change`,`Significance`)
+          df <- df %>% arrange(desc(abs(`Fold change (log2)`)))
+          df_out <- df %>% top_n(input$top_x,abs(`Fold change (log2)`)) %>% select(Name, Change, `Fold change (log2)`,`Significance`)
         } else if (input$criterion == "sig") {
           df <- df %>% arrange(desc(`Significance`))
-          df_out <- df %>% top_n(input$top_x,`Significance`) %>% select(Name, Change, `Fold change`,`Significance`)
+          df_out <- df %>% top_n(input$top_x,`Significance`) %>% select(Name, Change, `Fold change (log2)`,`Significance`)
         }
         
         #Add user selected hits, but remove them when already present
@@ -917,10 +917,10 @@ df_filtered <- reactive({
     
 
     if (g_choice == "-") {
-      koos <- df %>% select(`Fold change` = !!x_choice , `Significance` = !!y_choice)
+      koos <- df %>% select(`Fold change (log2)` = !!x_choice , `Significance` = !!y_choice)
       koos$Name <- " "
     } else if (g_choice != "-") {
-      koos <- df %>% select(`Fold change` = !!x_choice , `Significance` = !!y_choice, Name = input$g_var)
+      koos <- df %>% select(`Fold change (log2)` = !!x_choice , `Significance` = !!y_choice, Name = input$g_var)
       #Remove  names after semicolon for hits with multiple names, seperated by semicolons, e.g.: POLR2J3;POLR2J;POLR2J2
       koos <- koos %>% mutate(Name = gsub(';.*','',Name))
       
@@ -940,20 +940,20 @@ df_filtered <- reactive({
     if (input$direction =="decreased") {
       koos <- koos %>%mutate(
         Change = case_when(
-          `Fold change` < foldchange_min & `Significance` > pvalue_tr ~ "Decreased",
+          `Fold change (log2)` < foldchange_min & `Significance` > pvalue_tr ~ "Decreased",
           TRUE ~ "Unchanged")
       )
     } else if (input$direction =="increased") {
       koos <- koos %>%mutate(
         Change = case_when(
-          `Fold change` > foldchange_max & `Significance` > pvalue_tr ~ "Increased",
+          `Fold change (log2)` > foldchange_max & `Significance` > pvalue_tr ~ "Increased",
           TRUE ~ "Unchanged")
       )
     } else {
     koos <- koos %>%mutate(
            Change = case_when(
-             `Fold change` > foldchange_max & `Significance` > pvalue_tr ~ "Increased",
-             `Fold change` < foldchange_min & `Significance` > pvalue_tr ~ "Decreased",
+             `Fold change (log2)` > foldchange_max & `Significance` > pvalue_tr ~ "Increased",
+             `Fold change (log2)` < foldchange_min & `Significance` > pvalue_tr ~ "Decreased",
              TRUE ~ "Unchanged")
           )
     }
@@ -1003,7 +1003,7 @@ plot_data <- reactive({
     df$Change <- factor(df$Change, levels=c("Unchanged","Increased","Decreased"))
     
     p <-  ggplot(data = df) +
-      aes(x=`Fold change`) +
+      aes(x=`Fold change (log2)`) +
       aes(y=`Significance`) +
       geom_point(alpha = input$alphaInput, size = input$pointSize, shape = 16) +
       
@@ -1029,7 +1029,7 @@ plot_data <- reactive({
     
     ########## User defined labeling     
     if (input$hide_labels == FALSE) {
-      p <-  p + geom_point(data=df_top(), aes(x=`Fold change`,y=`Significance`), shape=1,color="black", size=(input$pointSize))+
+      p <-  p + geom_point(data=df_top(), aes(x=`Fold change (log2)`,y=`Significance`), shape=1,color="black", size=(input$pointSize))+
         geom_text_repel(
           data = df_top(),
           aes(label = Name),
@@ -1171,7 +1171,7 @@ output$coolplot <- renderPlot(width = width, height = height,{
 
     
     p <-  ggplot(data = df) +
-      aes(x=`Fold change`) +
+      aes(x=`Fold change (log2)`) +
       aes(y=`Significance`) +
       geom_point(alpha = input$alphaInput, size = input$pointSize, shape = 16) +
       
@@ -1199,7 +1199,7 @@ output$coolplot <- renderPlot(width = width, height = height,{
 
     ########## User defined labeling     
     if (input$hide_labels == FALSE) {
-      p <-  p + geom_point(data=df_top(), aes(x=`Fold change`,y=`Significance`), shape=1,color="black", size=(input$pointSize))+
+      p <-  p + geom_point(data=df_top(), aes(x=`Fold change (log2)`,y=`Significance`), shape=1,color="black", size=(input$pointSize))+
         geom_text_repel(
           data = df_top(),
           aes(label = Name),
