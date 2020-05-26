@@ -41,6 +41,8 @@ df_example_diffgenes_HFHC <- read.csv("Becares-diffgenes_HFHC.csv", na.strings =
 # Create a reactive object here that we can share between all the sessions.
 vals <- reactiveValues(count=0)
 
+
+
 # Define UI
 ui <- fluidPage(
    
@@ -241,30 +243,33 @@ ui <- fluidPage(
                 condition = "input.data_input=='3'",
         
                 fileInput("upload", NULL, multiple = FALSE, accept = c(".xlsx", ".xls", ".txt", ".csv")),
-                selectInput("file_type", "Type of file:",
-                            list(".csv or .txt" = "text",
-                                 ".xls or .xlsx" = "excel"
-                            ),
-                            selected = "text"),
-                conditionalPanel(
-                  condition = "input.file_type!='excel'",
-                  radioButtons(
-                    "upload_delim", "Delimiter",
-                    choices =
-                      list("Comma" = ",",
-                           "Tab" = "\t",
-                           "Semicolon" = ";",
-                           "Space" = " ")),
-                    selected = ","),         
-                
-                conditionalPanel(
-                  condition = "input.file_type=='excel'",
-                  selectInput("sheet", label = "Select sheet:", choices = " ")
+                # selectInput("file_type", "Type of file:",
+                #             list(".csv or .txt" = "text",
+                #                  ".xls or .xlsx" = "excel"
+                #             ),
+                #             selected = "text"),
 
-                ),
+                #   radioButtons(
+                #     "upload_delim", "Delimiter",
+                #     choices =
+                #       list("Comma" = ",",
+                #            "Tab" = "\t",
+                #            "Semicolon" = ";",
+                #            "Space" = " ")),
+                #     selected = ","),         
+                
+                selectInput("upload_delim", label = "Select Delimiter (for text file):", choices =list("Comma" = ",",
+                                                                                 "Tab" = "\t",
+                                                                                 "Semicolon" = ";",
+                                                                                 "Space" = " ")),
+                
+
+                  selectInput("sheet", label = "Select sheet (for excel workbook):", choices = " ")
+
+
                 
                 
-                actionButton("submit_datafile_button", "Submit datafile")
+                # actionButton("submit_datafile_button", "Submit datafile")
 
                 ),
               ### csv via URL as input      
@@ -390,7 +395,7 @@ df_upload <- reactive({
     if (input$data_input == 1) {
       x_var.selected <<- "log2_FoldChange"
       y_var.selected <<- "minus_log10_pvalue"
-      gene.selected <<- "Gene"
+      g_var.selected <<- "Gene"
       genelist.selected <<- ""
       # updateCheckboxInput(session, "transformation", value = FALSE)
       # transform_var_x.selected <<- "-"
@@ -400,7 +405,7 @@ df_upload <- reactive({
     } else if (input$data_input == 2) {
       x_var.selected <<- "log2_FoldChange"
       y_var.selected <<- "minus_log10_pvalue"
-      gene.selected <<- "Gene"
+      g_var.selected <<- "Gene"
       genelist.selected <<- "HSPA6"
       # updateCheckboxInput(session, "transformation", value = FALSE)
       # transform_var_x.selected <<- "-"
@@ -415,16 +420,25 @@ df_upload <- reactive({
       file_in <- input$upload
       # Avoid error message while file is not uploaded yet
       if (is.null(input$upload)) {
-        return(data.frame(x = "Select your datafile"))
-      } else if (input$submit_datafile_button == 0) {
-        return(data.frame(x = "Press 'submit datafile' button"))
+        return(data.frame(x = "Click 'Browse...' to select a datafile or drop file onto 'Browse' button"))
+      # } else if (input$submit_datafile_button == 0) {
+      #   return(data.frame(x = "Press 'submit datafile' button"))
       } else {
-        isolate({
+        
+        #Isolate extenstion and convert to lowercase
+        filename_split <- strsplit(file_in$datapath, '[.]')[[1]]
+        fileext <- tolower(filename_split[length(filename_split)])
+        
+        # observe({print(fileext)})
+        
+        # isolate({
            # data <- read.csv(file=file_in$datapath, sep = input$upload_delim, na.strings=c("",".","NA", "NaN", "#N/A", "#VALUE!"))
           
-          if (input$file_type == "text") {
+          if (fileext == "txt" || fileext=="csv") {
+            
             data <- read.csv(file=file_in$datapath, sep = input$upload_delim, na.strings=c("",".","NA", "NaN", "#N/A", "#VALUE!"))
-          } else if (input$file_type == "excel") {
+            updateSelectInput(session, "sheet", choices = " ", selected = " ")
+          } else if (fileext=="xls" || fileext=="xlsx") {
             names <- excel_sheets(path = input$upload$datapath)
             # updateSelectInput(session, "sheet_names", choices = names)
             sheet.selected <<- input$sheet 
@@ -445,11 +459,11 @@ df_upload <- reactive({
             data <- read_excel(file_in$datapath, sheet = n , na = c("",".","NA", "NaN", "#N/A", "#VALUE!"))
           } 
           
-        })
+        # })
       }
       
     } else if (input$data_input == 5) {
-      genelist.selected <<- ""
+      # genelist.selected <<- ""
       # updateCheckboxInput(session, "transformation", value = FALSE)
       # transform_var_x.selected <<- "-"
       # transform_var_y.selected <<- "-"
@@ -606,7 +620,6 @@ observe({
     
     presets_can <- query[['can']]
     presets_can <- unlist(strsplit(presets_can,";"))
-    observe(print((presets_can)))
     
     updateNumericInput(session, "top_x", value = presets_can[1])
     updateCheckboxInput(session, "show_table", value = presets_can[2])
@@ -615,6 +628,7 @@ observe({
     # updateTextInput(session, "user_gene_list", value= presets_can[4])
     
     genelist.selected <<- unlist(strsplit(presets_can[4],","))
+    # observe({print(genelist.selected)})
 
   }
   
@@ -720,6 +734,7 @@ url <- reactive({
   #Convert the list of genes to a comma-seperated string  
   a <- input$user_gene_list
   a <- paste(a, collapse=",")
+  # observe({print(a)})
   
   #as.character is necessary; if omitted TRUE is converted to 0 and FALSE to 1 which is undesired
   can <- c(input$top_x, as.character(input$show_table), input$hide_labels, a)
@@ -817,17 +832,17 @@ observeEvent(input$settings_copy , {
          
         
         if (input$criterion == "manh") {    
-        df <- df %>% mutate(`Manhattan distance` = abs(`Significance`)+abs(`Fold change`)) %>% arrange(desc(`Manhattan distance`))
-        df_out <- df %>% top_n(input$top_x,`Manhattan distance`) %>% select(Name, Change, `Fold change`,`Significance`,`Manhattan distance`)
+        df <- df %>% mutate(`Manhattan distance` = abs(`Significance`)+abs(`Fold change (log2)`)) %>% arrange(desc(`Manhattan distance`))
+        df_out <- df %>% top_n(input$top_x,`Manhattan distance`) %>% select(Name, Change, `Fold change (log2)`,`Significance`,`Manhattan distance`)
         } else if (input$criterion == "euclid") {
-          df <- df %>% mutate(`Euclidean distance` = sqrt((`Significance`)^2+(`Fold change`)^2)) %>% arrange(desc(`Euclidean distance`))
-          df_out <- df %>% top_n(input$top_x,`Euclidean distance`) %>% select(Name, Change, `Fold change`,`Significance`,`Euclidean distance`)
+          df <- df %>% mutate(`Euclidean distance` = sqrt((`Significance`)^2+(`Fold change (log2)`)^2)) %>% arrange(desc(`Euclidean distance`))
+          df_out <- df %>% top_n(input$top_x,`Euclidean distance`) %>% select(Name, Change, `Fold change (log2)`,`Significance`,`Euclidean distance`)
         } else if (input$criterion == "fc") {
-          df <- df %>% arrange(desc(abs(`Fold change`)))
-          df_out <- df %>% top_n(input$top_x,abs(`Fold change`)) %>% select(Name, Change, `Fold change`,`Significance`)
+          df <- df %>% arrange(desc(abs(`Fold change (log2)`)))
+          df_out <- df %>% top_n(input$top_x,abs(`Fold change (log2)`)) %>% select(Name, Change, `Fold change (log2)`,`Significance`)
         } else if (input$criterion == "sig") {
           df <- df %>% arrange(desc(`Significance`))
-          df_out <- df %>% top_n(input$top_x,`Significance`) %>% select(Name, Change, `Fold change`,`Significance`)
+          df_out <- df %>% top_n(input$top_x,`Significance`) %>% select(Name, Change, `Fold change (log2)`,`Significance`)
         }
         
         #Add user selected hits, but remove them when already present
@@ -902,10 +917,10 @@ df_filtered <- reactive({
     
 
     if (g_choice == "-") {
-      koos <- df %>% select(`Fold change` = !!x_choice , `Significance` = !!y_choice)
+      koos <- df %>% select(`Fold change (log2)` = !!x_choice , `Significance` = !!y_choice)
       koos$Name <- " "
     } else if (g_choice != "-") {
-      koos <- df %>% select(`Fold change` = !!x_choice , `Significance` = !!y_choice, Name = input$g_var)
+      koos <- df %>% select(`Fold change (log2)` = !!x_choice , `Significance` = !!y_choice, Name = input$g_var)
       #Remove  names after semicolon for hits with multiple names, seperated by semicolons, e.g.: POLR2J3;POLR2J;POLR2J2
       koos <- koos %>% mutate(Name = gsub(';.*','',Name))
       
@@ -925,20 +940,20 @@ df_filtered <- reactive({
     if (input$direction =="decreased") {
       koos <- koos %>%mutate(
         Change = case_when(
-          `Fold change` < foldchange_min & `Significance` > pvalue_tr ~ "Decreased",
+          `Fold change (log2)` < foldchange_min & `Significance` > pvalue_tr ~ "Decreased",
           TRUE ~ "Unchanged")
       )
     } else if (input$direction =="increased") {
       koos <- koos %>%mutate(
         Change = case_when(
-          `Fold change` > foldchange_max & `Significance` > pvalue_tr ~ "Increased",
+          `Fold change (log2)` > foldchange_max & `Significance` > pvalue_tr ~ "Increased",
           TRUE ~ "Unchanged")
       )
     } else {
     koos <- koos %>%mutate(
            Change = case_when(
-             `Fold change` > foldchange_max & `Significance` > pvalue_tr ~ "Increased",
-             `Fold change` < foldchange_min & `Significance` > pvalue_tr ~ "Decreased",
+             `Fold change (log2)` > foldchange_max & `Significance` > pvalue_tr ~ "Increased",
+             `Fold change (log2)` < foldchange_min & `Significance` > pvalue_tr ~ "Decreased",
              TRUE ~ "Unchanged")
           )
     }
@@ -988,7 +1003,7 @@ plot_data <- reactive({
     df$Change <- factor(df$Change, levels=c("Unchanged","Increased","Decreased"))
     
     p <-  ggplot(data = df) +
-      aes(x=`Fold change`) +
+      aes(x=`Fold change (log2)`) +
       aes(y=`Significance`) +
       geom_point(alpha = input$alphaInput, size = input$pointSize, shape = 16) +
       
@@ -1014,7 +1029,7 @@ plot_data <- reactive({
     
     ########## User defined labeling     
     if (input$hide_labels == FALSE) {
-      p <-  p + geom_point(data=df_top(), aes(x=`Fold change`,y=`Significance`), shape=1,color="black", size=(input$pointSize))+
+      p <-  p + geom_point(data=df_top(), aes(x=`Fold change (log2)`,y=`Significance`), shape=1,color="black", size=(input$pointSize))+
         geom_text_repel(
           data = df_top(),
           aes(label = Name),
@@ -1055,6 +1070,10 @@ plot_data <- reactive({
     if (input$add_title == TRUE) {
       #Add line break to generate some space
       title <- paste(input$title, "\n",sep="")
+      p <- p + labs(title = title)
+    } else if (input$sheet !=" ") {
+      title <- paste(input$sheet, "\n",sep="")
+      # observe({print('yay')})
       p <- p + labs(title = title)
     }
     
@@ -1152,7 +1171,7 @@ output$coolplot <- renderPlot(width = width, height = height,{
 
     
     p <-  ggplot(data = df) +
-      aes(x=`Fold change`) +
+      aes(x=`Fold change (log2)`) +
       aes(y=`Significance`) +
       geom_point(alpha = input$alphaInput, size = input$pointSize, shape = 16) +
       
@@ -1180,7 +1199,7 @@ output$coolplot <- renderPlot(width = width, height = height,{
 
     ########## User defined labeling     
     if (input$hide_labels == FALSE) {
-      p <-  p + geom_point(data=df_top(), aes(x=`Fold change`,y=`Significance`), shape=1,color="black", size=(input$pointSize))+
+      p <-  p + geom_point(data=df_top(), aes(x=`Fold change (log2)`,y=`Significance`), shape=1,color="black", size=(input$pointSize))+
         geom_text_repel(
           data = df_top(),
           aes(label = Name),
@@ -1220,6 +1239,10 @@ output$coolplot <- renderPlot(width = width, height = height,{
     if (input$add_title == TRUE) {
       #Add line break to generate some space
       title <- paste(input$title, "\n",sep="")
+      p <- p + labs(title = title)
+    } else if (input$sheet !=" ") {
+      title <- paste(input$sheet, "\n",sep="")
+      # observe({print('yay')})
       p <- p + labs(title = title)
     }
     
