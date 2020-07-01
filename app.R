@@ -147,6 +147,9 @@ ui <- fluidPage(
             checkboxInput(inputId = "rotate_plot",
                           label = "Rotate plot 90 degrees",
                           value = FALSE),
+            checkboxInput(inputId = "add_grid",
+                          label = "Add gridlines",
+                          value = FALSE),
             checkboxInput(inputId = "change_scale",
                           label = "Change scale",
                           value = FALSE),
@@ -344,7 +347,7 @@ ui <- fluidPage(
       # Show a plot of the generated distribution
       mainPanel(
         tabsetPanel(id="tabs",
-                    tabPanel("Data", h4("Data as provided"),dataTableOutput("data_uploaded")),
+                    tabPanel("Data", h4("Data as provided"),dataTableOutput("uploaded")),
                     tabPanel("Plot",h3("Volcano Plot"
                                        ),
                              downloadButton("downloadPlotPDF", "Download pdf-file"),
@@ -356,6 +359,7 @@ ui <- fluidPage(
 
                              plotOutput("coolplot",
                                         height = 'auto',
+                                        # click = "clicked",
                                         hover = hoverOpts("plot_hover", delay = 10, delayType = "debounce")),uiOutput("hover_info"),
                              
                              conditionalPanel(
@@ -486,7 +490,7 @@ df_upload <- reactive({
   
   #### DISPLAY UPLOADED DATA (as provided) ##################
   
-output$data_uploaded <- renderDataTable(
+output$uploaded <- renderDataTable(
     
     #    observe({ print(input$tidyInput) })
     df_upload(),
@@ -494,9 +498,13 @@ output$data_uploaded <- renderDataTable(
     rownames = FALSE,
     options = list(pageLength = 20, autoWidth = FALSE,
                    lengthMenu = c(20, 100, 1000, 10000)),
-    editable = FALSE,selection = 'none'
+    editable = FALSE
+    # ,selection = 'none'
   )
   
+  
+  
+
 
   ############## Export Normalized data in tidy format ###########
   
@@ -642,7 +650,7 @@ observe({
     # observe(print((presets_layout)))
     
     updateCheckboxInput(session, "rotate_plot", value = presets_layout[1])
-    # updateCheckboxInput(session, "no_grid", value = (presets_layout[2]))
+    updateCheckboxInput(session, "add_grid", value = (presets_layout[2]))
     
     updateCheckboxInput(session, "change_scale", value = presets_layout[3])
     updateTextInput(session, "range_x", value= presets_layout[4])
@@ -739,7 +747,7 @@ url <- reactive({
   #as.character is necessary; if omitted TRUE is converted to 0 and FALSE to 1 which is undesired
   can <- c(input$top_x, as.character(input$show_table), input$hide_labels, a)
 
-  layout <- c(input$rotate_plot, "", input$change_scale, input$range_x, input$range_y, "X", input$plot_height, input$plot_width)
+  layout <- c(input$rotate_plot, input$add_grid, input$change_scale, input$range_x, input$range_y, "X", input$plot_height, input$plot_width)
   
   #Hide the standard list of colors if it is'nt used
   if (input$adjustcolors != "5") {
@@ -856,13 +864,28 @@ observeEvent(input$settings_copy , {
   ################ List of user-selected hits #########
   df_user <- reactive({
     
-    # usr_selection <- strsplit(input$user_gene_list,",")[[1]]
-    
-    usr_selection <- input$user_gene_list
-    
-    df <- as.data.frame(df_filtered())
 
-    df <- df %>% filter(Name %in% usr_selection)
+    df <- as.data.frame(df_filtered())
+    
+    #select based on text input
+    usr_selection <- input$user_gene_list
+    df_selected_by_name <- df %>% filter(Name %in% usr_selection)    
+
+    
+    # clicked <- nearPoints(df, input$clicked)
+    # observe({print(clicked)})
+    
+    
+    #Select rows from DT
+    table_selection <- input$uploaded_rows_selected
+    # observe({print(table_selection)})
+    if (length(table_selection)>=1){
+      df_selected_by_tab <- df %>% slice(table_selection)
+      df_selected_by_name <- df_selected_by_name %>% bind_rows(df_selected_by_tab)
+    }
+
+    return(df_selected_by_name)
+
 
   })
   
@@ -1002,6 +1025,35 @@ plot_data <- reactive({
     #Convert 'Change' to a factor to keep this order, necessary for getting the colors right
     df$Change <- factor(df$Change, levels=c("Unchanged","Increased","Decreased"))
     
+    
+    ########## Determine color use #############
+    newColors <- c("grey", "red", "blue")
+    if (input$adjustcolors == 3) {
+      newColors <- c("Grey80", "darkblue", "darkgreen")
+    }
+    # else if (input$adjustcolors == 4) {
+    #   newColors <- Tol_light
+    # } else if (input$adjustcolors == 6) {
+    #   newColors <- Okabe_Ito
+    # }
+    else if (input$adjustcolors == 5) {
+      newColors <- gsub("\\s","", strsplit(input$user_color_list,",")[[1]])
+      
+      #If unsufficient colors available, repeat
+      if(length(newColors) < 3) {
+        newColors<-rep(newColors,times=(round(3/length(newColors)))+1)
+      }
+      
+      
+    }
+    
+    # Remove the color for category 'increased' when absent
+    if (("Increased" %in% df$Change) == FALSE) {
+      newColors <- newColors[c(1,3)]
+      
+    }
+    
+    
     p <-  ggplot(data = df) +
       aes(x=`Fold change (log2)`) +
       aes(y=`Significance`) +
@@ -1010,10 +1062,7 @@ plot_data <- reactive({
       # This needs to go here (before annotations)
       theme_light(base_size = 16) +
       aes(color=Change) + 
-      scale_color_manual(values=c("grey", "red", "blue")) +
-      
-      #remove gridlines (if selected
-      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+      scale_color_manual(values=newColors) +
       
       NULL
     
@@ -1026,6 +1075,12 @@ plot_data <- reactive({
     # if log-scale checked specified
     if (input$scale_log_10)
       p <- p + scale_y_log10() 
+    
+    #remove gridlines (if selected)
+    if (input$add_grid == FALSE) {  
+      p <- p+ theme(panel.grid.major = element_blank(),
+                    panel.grid.minor = element_blank())
+    }
     
     ########## User defined labeling     
     if (input$hide_labels == FALSE) {
@@ -1079,7 +1134,10 @@ plot_data <- reactive({
     
     # # if labels specified
     if (input$label_axes)
-      p <- p + labs(x = input$lab_x, y = input$lab_y)
+    {p <- p + labs(x = input$lab_x, y = input$lab_y)}
+    else {
+      p <- p + labs(x=bquote('Fold Change ('*Log[2]*')'), y=bquote('Significance ('*-Log[10]*')'))
+    }
     
     # # if font size is adjusted
     if (input$adj_fnt_sz) {
@@ -1138,13 +1196,6 @@ output$coolplot <- renderPlot(width = width, height = height,{
     
   }
   
-    # if (input$adjustcolors >1) {
-  #   newColors <- c("black")
-  # }
-  
-  
-  
-  
   
   ############## Adjust X-scaling if necessary ##########
   
@@ -1180,11 +1231,8 @@ output$coolplot <- renderPlot(width = width, height = height,{
       # This needs to go here (before annotations)
       theme_light(base_size = 16) +
       aes(color=Change) + 
-        scale_color_manual(values=newColors) +
+      scale_color_manual(values=newColors) +
     
-      #remove gridlines (if selected
-      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
-      
       NULL
     
     #Indicate cut-offs with dashed lines
@@ -1196,6 +1244,12 @@ output$coolplot <- renderPlot(width = width, height = height,{
     # if log-scale checked specified
     if (input$scale_log_10)
       p <- p + scale_y_log10() 
+    
+    #remove gridlines (if selected)
+    if (input$add_grid == FALSE) {  
+      p <- p+ theme(panel.grid.major = element_blank(),
+                    panel.grid.minor = element_blank())
+    }
 
     ########## User defined labeling     
     if (input$hide_labels == FALSE) {
@@ -1248,7 +1302,10 @@ output$coolplot <- renderPlot(width = width, height = height,{
     
     # # if labels specified
     if (input$label_axes)
-      p <- p + labs(x = input$lab_x, y = input$lab_y)
+      {p <- p + labs(x = input$lab_x, y = input$lab_y)}
+    else {
+      p <- p + labs(x=bquote('Fold Change ('*Log[2]*')'), y=bquote('Significance ('*-Log[10]*')'))
+    }
     
     # # if font size is adjusted
     if (input$adj_fnt_sz) {
