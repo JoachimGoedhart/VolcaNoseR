@@ -13,11 +13,11 @@ o [https://goedhart.shinyapps.io/VolcaNoseR/](https://goedhart.shinyapps.io/Volc
 Alternatively, the app can run from R/Rstudio and this is perhaps the best option for loading large files. See instructions below
 
 #### Preparations
-Note that the app depends on several R packages that need to be installed (shiny, ggplot2, dplyr, magrittr, ggrepel, DT, shinycssloaders, RCurl). 
+Note that the app depends on several R packages that need to be installed (shiny, ggplot2, dplyr, magrittr, ggrepel, DT, shinycssloaders, RCurl, readxl). 
 
 Run this command in R/Rstudio to download and install all the packages (only needs to be done once):
 ```
-install.packages("shiny", "ggplot2", "dplyr", "magrittr", "ggrepel", "DT", "shinycssloaders", "RCurl")
+install.packages("shiny", "ggplot2", "dplyr", "magrittr", "ggrepel", "DT", "shinycssloaders", "RCurl", "readxl")
 ```
 o The first option is running it directly from Github. In the command line (in R or Rstudio) type:
 ```
