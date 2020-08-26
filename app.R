@@ -93,18 +93,7 @@ ui <- fluidPage(
             checkboxInput(inputId = "hide_labels",
                           label = "Hide labels in the plot",
                           value = FALSE),
-            # checkboxInput(inputId = "user_selected",
-            #               label = "User defined hits",
-            #               value = FALSE),
-            # 
-            # conditionalPanel(condition = "input.user_selected == true",
-            #                 
-            #                  
-            # 
-            #               NULL   
-            # ),
-            # 
-            
+
             radioButtons("adjustcolors", "Color (Unchanged,Increased,Decreased)", choices = 
                            list(
                              "Grey, Red, Blue" = 1,
@@ -361,12 +350,13 @@ ui <- fluidPage(
                                         height = 'auto',
                                         # click = "clicked",
                                         hover = hoverOpts("plot_hover", delay = 10, delayType = "debounce")),uiOutput("hover_info"),
-                             
-                             conditionalPanel(
-                               condition = "input.show_table == true",
-                            h3("Top hits (based on Manhattan distance from origin)")),
-                             withSpinner(tableOutput('toptable'))
-
+                            
+                            conditionalPanel(
+                              condition = "input.show_table == true",
+                              h3("Top hits (based on distance from origin)"), withSpinner(dataTableOutput('toptableDT')))
+                            
+                            
+                            
                               ),
                     # tabPanel("iPlot", h4("iPlot"), plotlyOutput("out_plotly")),
 
@@ -988,15 +978,16 @@ df_filtered <- reactive({
     
 })
 
-############## Render the data summary as a table ###########
-  
-output$toptable <- renderTable({
-    
-    if (input$show_table == F) return(NULL)
-    df <- as.data.frame(df_top())
-    
-  })
+############## Render the data summary as a dataTable ###########
 
+output$toptableDT <- renderDataTable(
+    
+    df_top(),
+    extensions = c('Buttons'),
+    rownames = FALSE,
+    options = list(dom = 'Blfrtip', buttons = c('copy', 'csv','excel', 'pdf'), autoWidth = FALSE, lengthMenu = c(20, 50, 100)),
+    editable = FALSE,selection = 'none'
+  )
   
 plot_data <- reactive({
     
