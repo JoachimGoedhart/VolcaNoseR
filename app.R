@@ -34,6 +34,8 @@ library(readxl)
 library(DT)
 library(RCurl)
 
+source("themes.R")
+
 #df_example <- read.csv("Data-Vulcano-plot.csv", na.strings = "")
 df_example_cdc42 <- read.csv("elife-45916-Cdc42QL_data.csv", na.strings = "")
 df_example_diffgenes_HFHC <- read.csv("Becares-diffgenes_HFHC.csv", na.strings = "")
@@ -98,10 +100,12 @@ ui <- fluidPage(
                            list(
                              "Grey, Red, Blue" = 1,
                              "Grey, Blue, Green" = 3,
+                             "Grey, Cyan, Purple" = 4,
                              "User defined"=5),
                          selected =  1),
             conditionalPanel(condition = "input.adjustcolors == 5",
-                             textInput("user_color_list", "List of names or hexadecimal codes", value = "turquoise2,#FF2222,lawngreen")), 
+                             textInput("user_color_list", "List of names or hexadecimal codes", value = "turquoise2,#FF2222,lawngreen")),
+            checkboxInput(inputId = "dark", label = "Dark Theme", value = FALSE),
             
             # h5("",
             #    a("Click here for more info on color names",
@@ -990,6 +994,8 @@ output$toptableDT <- renderDataTable(
   )
   
 plot_data <- reactive({
+  
+  if (input$dark) {line_color="white"} else {line_color="gray20"}
     
     ############## Adjust X-scaling if necessary ##########
     
@@ -1016,18 +1022,29 @@ plot_data <- reactive({
     #Convert 'Change' to a factor to keep this order, necessary for getting the colors right
     df$Change <- factor(df$Change, levels=c("Unchanged","Increased","Decreased"))
     
-    
     ########## Determine color use #############
-    newColors <- c("grey", "red", "blue")
-    if (input$adjustcolors == 3) {
+    if (input$adjustcolors == 1 && input$dark) {
+      newColors <- c("#505050", "#FF3333", "#0092CC")
+    } else if (input$adjustcolors == 1 && input$dark == FALSE) {
+      newColors <- c("grey", "red", "blue")
+    }
+    
+    if (input$adjustcolors == 3 && input$dark) {
+      newColors <- c( "#505050", "deepskyblue", "green")
+    } else if (input$adjustcolors == 3 && input$dark == FALSE) {
       newColors <- c("Grey80", "darkblue", "darkgreen")
     }
-    # else if (input$adjustcolors == 4) {
-    #   newColors <- Tol_light
+  
+    
+    if (input$adjustcolors == 4 && input$dark) {
+      newColors <- c("#505050", "#BB86FC", "#03DAC5") }
+    else if (input$adjustcolors == 4 && input$dark == FALSE)
+    { newColors <- c("grey", "#9932CC","#turquoise4")
     # } else if (input$adjustcolors == 6) {
     #   newColors <- Okabe_Ito
-    # }
-    else if (input$adjustcolors == 5) {
+    }
+    
+    if (input$adjustcolors == 5) {
       newColors <- gsub("\\s","", strsplit(input$user_color_list,",")[[1]])
       
       #If unsufficient colors available, repeat
@@ -1057,11 +1074,14 @@ plot_data <- reactive({
       
       NULL
     
-    #Indicate cut-offs with dashed lines
-    if (input$direction !="decreased")  p <- p + geom_vline(xintercept = input$fc_cutoff[2], linetype="dashed")
-    if (input$direction !="increased")  p <- p + geom_vline(xintercept = input$fc_cutoff[1], linetype="dashed")
+    if (input$dark) {p <- p+ theme_light_dark_bg(base_size = 16)}
     
-    p <- p + geom_hline(yintercept = input$p_cutoff, linetype="dashed") 
+    
+    #Indicate cut-offs with dashed lines
+    if (input$direction !="decreased")  p <- p + geom_vline(xintercept = input$fc_cutoff[2], linetype="dashed", color=line_color)
+    if (input$direction !="increased")  p <- p + geom_vline(xintercept = input$fc_cutoff[1], linetype="dashed", color=line_color)
+    
+    p <- p + geom_hline(yintercept = input$p_cutoff, linetype="dashed", color=line_color) 
     
     # if log-scale checked specified
     if (input$scale_log_10)
@@ -1075,12 +1095,12 @@ plot_data <- reactive({
     
     ########## User defined labeling     
     if (input$hide_labels == FALSE) {
-      p <-  p + geom_point(data=df_top(), aes(x=`Fold change (log2)`,y=`Significance`), shape=1,color="black", size=(input$pointSize))+
+      p <-  p + geom_point(data=df_top(), aes(x=`Fold change (log2)`,y=`Significance`), shape=1,color=line_color, size=(input$pointSize))+
         geom_text_repel(
           data = df_top(),
           aes(label = Name),
           size = input$fnt_sz_cand,
-          color="black",
+          color=line_color,
           nudge_x = 0.2,
           nudge_y=0.2,
           box.padding = unit(0.9, "lines"),
@@ -1155,22 +1175,36 @@ plot_data <- reactive({
   
 output$coolplot <- renderPlot(width = width, height = height,{
   
+  if (input$dark) {line_color="white"} else {line_color="gray20"}
+  
   df <- as.data.frame(df_filtered())
   #Convert 'Change' to a factor to keep this order, necessary for getting the colors right
   df$Change <- factor(df$Change, levels=c("Unchanged","Increased","Decreased"))
 
 
   ########## Determine color use #############
-  newColors <- c("grey", "red", "blue")
-  if (input$adjustcolors == 3) {
+  if (input$adjustcolors == 1 && input$dark) {
+    newColors <- c("#505050", "#FF3333", "#0092CC")
+  } else if (input$adjustcolors == 1 && input$dark == FALSE) {
+    newColors <- c("grey", "red", "blue")
+  }
+  
+  if (input$adjustcolors == 3 && input$dark) {
+    newColors <- c( "#505050", "deepskyblue", "green")
+  } else if (input$adjustcolors == 3 && input$dark == FALSE) {
     newColors <- c("Grey80", "darkblue", "darkgreen")
   }
-  # else if (input$adjustcolors == 4) {
-  #   newColors <- Tol_light
+  
+  
+  if (input$adjustcolors == 4 && input$dark) {
+    newColors <- c("#505050", "#BB86FC", "#03DAC5") }
+  else if (input$adjustcolors == 4 && input$dark == FALSE)
+  { newColors <- c("grey", "#9932CC","turquoise4")
   # } else if (input$adjustcolors == 6) {
   #   newColors <- Okabe_Ito
-  # }
-  else if (input$adjustcolors == 5) {
+  }
+  
+  if (input$adjustcolors == 5) {
     newColors <- gsub("\\s","", strsplit(input$user_color_list,",")[[1]])
     
     #If unsufficient colors available, repeat
@@ -1226,11 +1260,14 @@ output$coolplot <- renderPlot(width = width, height = height,{
     
       NULL
     
-    #Indicate cut-offs with dashed lines
-    if (input$direction !="decreased")  p <- p + geom_vline(xintercept = input$fc_cutoff[2], linetype="dashed")
-    if (input$direction !="increased")  p <- p + geom_vline(xintercept = input$fc_cutoff[1], linetype="dashed")
+    if (input$dark) {p <- p+ theme_light_dark_bg(base_size = 16)}
     
-    p <- p + geom_hline(yintercept = input$p_cutoff, linetype="dashed") 
+    
+    #Indicate cut-offs with dashed lines
+    if (input$direction !="decreased")  p <- p + geom_vline(xintercept = input$fc_cutoff[2], linetype="dashed", color=line_color)
+    if (input$direction !="increased")  p <- p + geom_vline(xintercept = input$fc_cutoff[1], linetype="dashed", color=line_color)
+    
+    p <- p + geom_hline(yintercept = input$p_cutoff, linetype="dashed", color=line_color) 
     
     # if log-scale checked specified
     if (input$scale_log_10)
@@ -1244,12 +1281,12 @@ output$coolplot <- renderPlot(width = width, height = height,{
 
     ########## User defined labeling     
     if (input$hide_labels == FALSE) {
-      p <-  p + geom_point(data=df_top(), aes(x=`Fold change (log2)`,y=`Significance`), shape=1,color="black", size=(input$pointSize))+
+      p <-  p + geom_point(data=df_top(), aes(x=`Fold change (log2)`,y=`Significance`), shape=1,color=line_color, size=(input$pointSize))+
         geom_text_repel(
           data = df_top(),
           aes(label = Name),
           size = input$fnt_sz_cand,
-          color="black",
+          color=line_color,
           nudge_x = 0.2,
           nudge_y=0.2,
           box.padding = unit(0.9, "lines"),
