@@ -93,8 +93,9 @@ theme_light_dark_bg <- function(base_size = 11, base_family = "",
       # match axes ticks thickness to gridlines and colour to panel border
       axis.ticks       = element_line(colour = "grey80", size = rel(0.5)),
       
-      # match legend key to panel.background
-      legend.key       = element_rect(fill = NA, colour = NA),
+      # match legend key to plot.background
+      legend.background = element_rect(fill= "black", colour = NULL),
+      legend.key       = element_rect(fill = "black", colour = NULL),
       
       # dark strips with light text (inverse contrast compared to theme_grey)
       strip.background = element_rect(fill = "grey40", colour = NA),
