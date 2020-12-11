@@ -25,6 +25,7 @@ options(shiny.maxRequestSize=10*1024^2)
 #Load necessary packages
 
 library(shiny)
+library(svglite)
 library(ggplot2)
 library(magrittr)
 library(dplyr)

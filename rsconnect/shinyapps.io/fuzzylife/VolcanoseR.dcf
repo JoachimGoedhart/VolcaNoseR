@@ -1,0 +1,12 @@
+name: VolcanoseR
+title: VolcanoseR
+username:
+account: fuzzylife
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 3388466
+bundleId: 3975914
+url: https://fuzzylife.shinyapps.io/VolcaNoseR/
+when: 1607704032.45113
+asMultiple: FALSE
+asStatic: FALSE
