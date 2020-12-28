@@ -25,6 +25,7 @@ options(shiny.maxRequestSize=10*1024^2)
 #Load necessary packages
 
 library(shiny)
+library(svglite)
 library(ggplot2)
 library(magrittr)
 library(dplyr)
@@ -344,7 +345,7 @@ ui <- fluidPage(
                     tabPanel("Plot",h3("Volcano Plot"
                                        ),
                              downloadButton("downloadPlotPDF", "Download pdf-file"),
-                             #                          downloadButton("downloadPlotSVG", "Download svg-file"),
+                             downloadButton("downloadPlotSVG", "Download svg-file"),
                              downloadButton("downloadPlotPNG", "Download png-file"),
                              
                              actionButton("settings_copy", icon = icon("clone"),
@@ -1392,21 +1393,32 @@ output$hover_info <- renderUI({
   
   ######### DEFINE DOWNLOAD BUTTONS FOR ORDINARY PLOT ###########
   
-  output$downloadPlotPDF <- downloadHandler(
-    filename <- function() {
-      paste("VolcaNoseR_", Sys.time(), ".pdf", sep = "")
-    },
-    content <- function(file) {
-      pdf(file, width = input$plot_width/72, height = input$plot_height/72)
-      plot(plot_data())
-      
-      dev.off()
-    },
-    contentType = "application/pdf" # MIME type of the image
-  )
-  
-  
-  output$downloadPlotPNG <- downloadHandler(
+output$downloadPlotPDF <- downloadHandler(
+            filename <- function() {
+                        paste("VolcaNoseR_", Sys.time(), ".pdf", sep = "")
+            },
+            content <- function(file) {
+                        pdf(file, width = input$plot_width/72, height = input$plot_height/72)
+                        plot(plot_data())
+                        
+                        dev.off()
+            },
+            contentType = "application/pdf" # MIME type of the image
+)
+
+
+output$downloadPlotSVG <- downloadHandler(
+            filename <- function() {
+                        paste("VolcaNoseR_", Sys.Date(), ".svg", sep = "")
+            },
+            content <- function(file) {
+                        ggplot2::ggsave(file=file,plot=plot_data())
+            },
+            contentType = "application/svg" # MIME type of the image
+)
+
+
+output$downloadPlotPNG <- downloadHandler(
     filename <- function() {
       paste("VolcaNoseR_", Sys.time(), ".png", sep = "")
     },

@@ -1,27 +1,23 @@
 # VolcaNoseR
-A Shiny App for making Volcano plots
-
+A Shiny App for making Volcano plots based on [VolcaNoseR](https://github.com/JoachimGoedhart/VolcaNoseR/)
 
 ### Running the App
 
-The web-tool runs from a shiny server, and can be accessed at:
+o [Check](https://fuzzylife.shinyapps.io/VolcaNoseR/), while bandwidth lasts
 
-o [https://huygens.science.uva.nl/VolcaNoseR/](https://huygens.science.uva.nl/VolcaNoseR/)
-
-o [https://goedhart.shinyapps.io/VolcaNoseR/](https://goedhart.shinyapps.io/VolcaNoseR/), while bandwidth lasts
-
-Alternatively, the app can run from R/Rstudio and this is perhaps the best option for loading large files. See instructions below
-
-#### Preparations
-Note that the app depends on several R packages that need to be installed (shiny, ggplot2, dplyr, magrittr, ggrepel, DT, shinycssloaders, RCurl, readxl). 
-
-Run this command in R/Rstudio to download and install all the packages (only needs to be done once):
+#### Server 
+o [Install](https://rstudio.com/products/shiny/download-server/ubuntu/)
 ```
-install.packages("shiny", "ggplot2", "dplyr", "magrittr", "ggrepel", "DT", "shinycssloaders", "RCurl", "readxl")
+sudo su - -c "R -e \"install.packages(c('ggplot2','dplyr','ggrepel','shinycssloaders','readxl','DT', 'RCurl','svglite')repos='https://cran.rstudio.com/')\""
 ```
+o log monitor *example*
+```
+tail -f /var/log/shiny-server/VolcaNoseR-shiny-*.log
+```
+
 o The first option is running it directly from Github. In the command line (in R or Rstudio) type:
 ```
-shiny::runGitHub('VolcaNoseR', 'JoachimGoedhart')
+shiny::runGitHub('VolcaNoseR', 'animesh')
 ```
 o The second option is download the app and to use it offline:
 
