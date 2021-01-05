@@ -350,10 +350,16 @@ ui <- fluidPage(
                              actionButton("settings_copy", icon = icon("clone"),
                                           label = "Clone current setting"),
 
+                             
+                             div(
+                               style = "position:relative",
+                               
+                               
                              plotOutput("coolplot",
-                                        height = 'auto',
+                                        # height = 'auto',
                                         # click = "clicked",
-                                        hover = hoverOpts("plot_hover", delay = 10, delayType = "debounce")),uiOutput("hover_info"),
+                                        hover = hoverOpts("plot_hover", delay = 10, delayType = "debounce")),uiOutput("hover_info")
+                             ),
                             
                             conditionalPanel(
                               condition = "input.show_table == true",
@@ -1037,9 +1043,9 @@ plot_data <- reactive({
   
     
     if (input$adjustcolors == 4 && input$dark) {
-      newColors <- c("#505050", "#BB86FC", "#03DAC5") }
+      newColors <- c("#505050", "#03DAC5", "#BB86FC") }
     else if (input$adjustcolors == 4 && input$dark == FALSE)
-    { newColors <- c("grey", "#9932CC","#turquoise4")
+    { newColors <- c("grey", "turquoise4","#9932CC")
     # } else if (input$adjustcolors == 6) {
     #   newColors <- Okabe_Ito
     }
@@ -1197,9 +1203,9 @@ output$coolplot <- renderPlot(width = width, height = height,{
   
   
   if (input$adjustcolors == 4 && input$dark) {
-    newColors <- c("#505050", "#BB86FC", "#03DAC5") }
+    newColors <- c("#505050", "#03DAC5", "#BB86FC") }
   else if (input$adjustcolors == 4 && input$dark == FALSE)
-  { newColors <- c("grey", "#9932CC","turquoise4")
+  { newColors <- c("grey", "turquoise4", "#9932CC")
   # } else if (input$adjustcolors == 6) {
   #   newColors <- Okabe_Ito
   }
