@@ -5,9 +5,9 @@ account: goedhart
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 1844600
-bundleId: 4062003
+bundleId: 4336017
 url: https://goedhart.shinyapps.io/VolcaNoseR/
-when: 1609881795.80215
+when: 1615560495.20442
 asMultiple: FALSE
 asStatic: FALSE
 ignoredFiles: .gitattributes|LICENSE|README.md|VolcaNoseR_example1.png|VolcaNoseR_example2.png

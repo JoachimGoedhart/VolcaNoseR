@@ -40,10 +40,12 @@ source("themes.R")
 df_example_cdc42 <- read.csv("elife-45916-Cdc42QL_data.csv", na.strings = "")
 df_example_diffgenes_HFHC <- read.csv("Becares-diffgenes_HFHC.csv", na.strings = "")
 
+#From Color Universal Design (CUD): https://jfly.uni-koeln.de/color/
+Okabe_Ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "#000000")
+
+
 # Create a reactive object here that we can share between all the sessions.
 vals <- reactiveValues(count=0)
-
-
 
 # Define UI
 ui <- fluidPage(
@@ -73,7 +75,7 @@ ui <- fluidPage(
             h4("Selection & Annotation of hits"),
             sliderInput("fc_cutoff", "Fold Change threshold:", -5, 5, step=0.1, value = c(-1.5,1.5)),
             sliderInput("p_cutoff", "Significance threshold:", 0, 5, step=0.1, value = 2),
-            selectInput("direction", label="Use thresholds to annotate:", choices = list("All (ignores thresholds)"="all", "Changed (and significant)"="significant","Increased (and significant)"="increased", "Decreased (and significant)"="decreased"), selected ="significant"),
+            selectInput("direction", label="Use thresholds to filter hits:", choices = list("Ignore thresholds"="all", "Changed (and significant)"="significant","Increased (and significant)"="increased", "Decreased (and significant)"="decreased"), selected ="significant"),
             
             selectInput("criterion", label="Criterion for ranking hits:", choices = list("Manhattan distance"="manh", "Euclidean distance"="euclid","Fold change"="fc","Significance"="sig"), selected ="manh"),
             
@@ -96,15 +98,15 @@ ui <- fluidPage(
                           label = "Hide labels in the plot",
                           value = FALSE),
 
-            radioButtons("adjustcolors", "Color (Unchanged,Increased,Decreased)", choices = 
+            radioButtons("adjustcolors", "Color (Unchanged,Incr.,Decr.,User selected)", choices = 
                            list(
-                             "Grey, Red, Blue" = 1,
-                             "Grey, Blue, Green" = 3,
-                             "Grey, Cyan, Purple" = 4,
+                             "Grey, Red, Blue, Black" = 1,
+                             "Grey, Blue, Green, Black" = 3,
+                             "Grey, Cyan, Purple, Black" = 4,
                              "User defined"=5),
                          selected =  1),
             conditionalPanel(condition = "input.adjustcolors == 5",
-                             textInput("user_color_list", "List of names or hexadecimal codes", value = "turquoise2,#FF2222,lawngreen")),
+                             textInput("user_color_list", "List of names or hexadecimal codes", value = "turquoise2,#FF2222,lawngreen,orange")),
             checkboxInput(inputId = "dark", label = "Dark Theme", value = FALSE),
             
             # h5("",
@@ -280,6 +282,10 @@ ui <- fluidPage(
               selectInput("x_var", label = "X-axis; Effect (fold change)", choices = "-"),
               selectInput("y_var", label = "Y-axis; Significance (p-value)", choices = "-"),
               selectInput("g_var", label = "Select column with names", choices = "-"),
+              selectInput("c_var", label = "Select column with categories", choices = "-"),
+              checkboxInput(inputId = "cat_color",
+                            label = "Use Color to identify Categories",
+                            value = FALSE),
               
 
               # h4("Transformation"),
@@ -356,14 +362,14 @@ ui <- fluidPage(
                                
                                
                              plotOutput("coolplot",
-                                        # height = 'auto',
+                                         height = 'auto',
                                         # click = "clicked",
                                         hover = hoverOpts("plot_hover", delay = 10, delayType = "debounce")),uiOutput("hover_info")
                              ),
                             
                             conditionalPanel(
                               condition = "input.show_table == true",
-                              h3("Top hits (based on distance from origin)"), withSpinner(dataTableOutput('toptableDT')))
+                              br(),h3("Top hits (based on distance from origin)"), withSpinner(dataTableOutput('toptableDT')))
                             
                             
                             
@@ -386,6 +392,7 @@ server <- function(input, output, session) {
   x_var.selected <- "log2_FoldChange"
   y_var.selected <- "minus_log10_pvalue"
   g_var.selected <- "Gene"
+  c_var.selected <- "-"
   sheet.selected <- " "
   
   # transform_var_x.selected <- "-"
@@ -554,6 +561,7 @@ observe({
     
     # updateSelectInput(session, "map_size", choices = mapping_list_all)
    updateSelectInput(session, "g_var", choices = nms_fact, selected = g_var.selected)
+   updateSelectInput(session, "c_var", choices = nms_fact, selected = c_var.selected)
    
    updateSelectizeInput(session, "user_gene_list", selected = genelist.selected)
    
@@ -838,26 +846,31 @@ observeEvent(input$settings_copy , {
           
         }
          
+        #Get the order right
+        df <- df %>% select(Name, Category, Change, `Fold change (log2)`,`Significance`)
+        
         
         if (input$criterion == "manh") {    
         df <- df %>% mutate(`Manhattan distance` = abs(`Significance`)+abs(`Fold change (log2)`)) %>% arrange(desc(`Manhattan distance`))
-        df_out <- df %>% top_n(input$top_x,`Manhattan distance`) %>% select(Name, Change, `Fold change (log2)`,`Significance`,`Manhattan distance`)
+        df_out <- df %>% top_n(input$top_x,`Manhattan distance`)
         } else if (input$criterion == "euclid") {
           df <- df %>% mutate(`Euclidean distance` = sqrt((`Significance`)^2+(`Fold change (log2)`)^2)) %>% arrange(desc(`Euclidean distance`))
-          df_out <- df %>% top_n(input$top_x,`Euclidean distance`) %>% select(Name, Change, `Fold change (log2)`,`Significance`,`Euclidean distance`)
+          df_out <- df %>% top_n(input$top_x,`Euclidean distance`)
         } else if (input$criterion == "fc") {
           df <- df %>% arrange(desc(abs(`Fold change (log2)`)))
-          df_out <- df %>% top_n(input$top_x,abs(`Fold change (log2)`)) %>% select(Name, Change, `Fold change (log2)`,`Significance`)
+          df_out <- df %>% top_n(input$top_x,abs(`Fold change (log2)`))
         } else if (input$criterion == "sig") {
           df <- df %>% arrange(desc(`Significance`))
-          df_out <- df %>% top_n(input$top_x,`Significance`) %>% select(Name, Change, `Fold change (log2)`,`Significance`)
+          df_out <- df %>% top_n(input$top_x,`Significance`) 
         }
         
         #Add user selected hits, but remove them when already present
         df_out <- bind_rows(df_out,df_user()) %>% distinct(Name, .keep_all = TRUE)
         # }
         
-        # observe({print(df_out)})
+        
+        
+        observe({print(df_out)})
         return(df_out)
   })
 
@@ -937,6 +950,7 @@ df_filtered <- reactive({
     x_choice <- input$x_var
     y_choice <- input$y_var
     g_choice <- input$g_var
+    c_choice <- input$c_var
     
 
     if (g_choice == "-") {
@@ -946,12 +960,20 @@ df_filtered <- reactive({
       koos <- df %>% select(`Fold change (log2)` = !!x_choice , `Significance` = !!y_choice, Name = input$g_var)
       #Remove  names after semicolon for hits with multiple names, seperated by semicolons, e.g.: POLR2J3;POLR2J;POLR2J2
       koos <- koos %>% mutate(Name = gsub(';.*','',Name))
-      
     }
     
+    if (c_choice != "-") {kaas <- df %>% select(Category = !!c_choice)
+    observe({print(head(kaas))})
+    koos <- bind_cols(koos,kaas)
+    # observe({print(head(koos))})
+    } else {koos$Category <- 'NA'}
+    
+    
+    
+    if (g_choice != "-") {
     #Update the gene list for user selection
     updateSelectizeInput(session, "user_gene_list", choices = koos$Name, selected = genelist.selected)
-
+    }
       
     foldchange_min=input$fc_cutoff[1]
     foldchange_max=input$fc_cutoff[2]
@@ -972,15 +994,28 @@ df_filtered <- reactive({
           `Fold change (log2)` > foldchange_max & `Significance` > pvalue_tr ~ "Increased",
           TRUE ~ "Unchanged")
       )
-    } else {
+    } else if (input$direction =="significant"){
     koos <- koos %>%mutate(
            Change = case_when(
              `Fold change (log2)` > foldchange_max & `Significance` > pvalue_tr ~ "Increased",
              `Fold change (log2)` < foldchange_min & `Significance` > pvalue_tr ~ "Decreased",
              TRUE ~ "Unchanged")
           )
+    } else if (input$direction =="all"){
+      koos <- koos %>%mutate(Change = "Increased")
+        
     }
+
+    koos <- koos %>%mutate(
+      Alpha = case_when(
+        `Change` == "Decreased" ~ 1.0,
+        `Change` == "Increased" ~ 1.0,
+        `Change` == "NA" ~ 1.0,        
+        TRUE ~ 0.5)
+    )
     
+    
+    observe({print(head(koos))})
     return(koos)
     #Replace space and dot of header names by underscore
     # df <- df %>%  
@@ -1050,12 +1085,14 @@ plot_data <- reactive({
     #   newColors <- Okabe_Ito
     }
     
+    if (input$adjustcolors != 5) {newColors[4] <- line_color}
+    
     if (input$adjustcolors == 5) {
       newColors <- gsub("\\s","", strsplit(input$user_color_list,",")[[1]])
       
       #If unsufficient colors available, repeat
-      if(length(newColors) < 3) {
-        newColors<-rep(newColors,times=(round(3/length(newColors)))+1)
+      if(length(newColors) < 4) {
+        newColors<-rep(newColors,times=(round(4/length(newColors)))+1)
       }
       
       
@@ -1063,7 +1100,7 @@ plot_data <- reactive({
     
     # Remove the color for category 'increased' when absent
     if (("Increased" %in% df$Change) == FALSE) {
-      newColors <- newColors[c(1,3)]
+      newColors <- newColors[c(1,3,4)]
       
     }
     
@@ -1071,24 +1108,31 @@ plot_data <- reactive({
     p <-  ggplot(data = df) +
       aes(x=`Fold change (log2)`) +
       aes(y=`Significance`) +
-      geom_point(alpha = input$alphaInput, size = input$pointSize, shape = 16) +
+      aes(alpha=I(Alpha)*input$alphaInput) +
+      # geom_point(alpha = input$alphaInput, size = input$pointSize, shape = 16) +
+      geom_point(size = input$pointSize, shape = 16) +
       
+            
       # This needs to go here (before annotations)
-      theme_light(base_size = 16) +
-      aes(color=Change) + 
-      scale_color_manual(values=newColors) +
-      
+      theme_light(base_size = 16)
+    
+    if (input$cat_color != TRUE) {
+      p <- p + aes(color=Change) + scale_color_manual(values=newColors) +
+        NULL
+    } else    {  p <- p + aes(color=Category) + scale_color_manual(values=Okabe_Ito) }
+    
       NULL
     
     if (input$dark) {p <- p+ theme_light_dark_bg(base_size = 16)}
     
     
     #Indicate cut-offs with dashed lines
-    if (input$direction !="decreased")  p <- p + geom_vline(xintercept = input$fc_cutoff[2], linetype="dashed", color=line_color)
-    if (input$direction !="increased")  p <- p + geom_vline(xintercept = input$fc_cutoff[1], linetype="dashed", color=line_color)
+    if (input$direction =="increased" || input$direction == 'significant')  p <- p + geom_vline(xintercept = input$fc_cutoff[2], linetype="dashed", color=line_color)
+    if (input$direction =="decreased" || input$direction == 'significant')  p <- p + geom_vline(xintercept = input$fc_cutoff[1], linetype="dashed", color=line_color)
     
-    p <- p + geom_hline(yintercept = input$p_cutoff, linetype="dashed", color=line_color) 
-    
+    if (input$direction != 'all') {
+      p <- p + geom_hline(yintercept = input$p_cutoff, linetype="dashed", color=line_color) 
+    }
     # if log-scale checked specified
     if (input$scale_log_10)
       p <- p + scale_y_log10() 
@@ -1209,13 +1253,15 @@ output$coolplot <- renderPlot(width = width, height = height,{
   # } else if (input$adjustcolors == 6) {
   #   newColors <- Okabe_Ito
   }
+  if (input$adjustcolors != 5) {newColors[4] <- line_color}
+  
   
   if (input$adjustcolors == 5) {
     newColors <- gsub("\\s","", strsplit(input$user_color_list,",")[[1]])
     
-    #If unsufficient colors available, repeat
-    if(length(newColors) < 3) {
-      newColors<-rep(newColors,times=(round(3/length(newColors)))+1)
+    #If unsufficient colors available, repeat (fourth color is used for user-selected hits)
+    if(length(newColors) < 4) {
+      newColors<-rep(newColors,times=(round(4/length(newColors)))+1)
     }
     
     
@@ -1223,7 +1269,7 @@ output$coolplot <- renderPlot(width = width, height = height,{
   
   # Remove the color for category 'increased' when absent
   if (("Increased" %in% df$Change) == FALSE) {
-    newColors <- newColors[c(1,3)]
+    newColors <- newColors[c(1,3,4)]
     
   }
   
@@ -1255,26 +1301,34 @@ output$coolplot <- renderPlot(width = width, height = height,{
     p <-  ggplot(data = df) +
       aes(x=`Fold change (log2)`) +
       aes(y=`Significance`) +
-      geom_point(alpha = input$alphaInput, size = input$pointSize, shape = 16) +
+      aes(alpha=I(Alpha)*input$alphaInput) +
+      # geom_point(alpha = input$alphaInput, size = input$pointSize, shape = 16) +
       
- 
+      geom_point(size = input$pointSize, shape = 16) +
+      
       
       # This needs to go here (before annotations)
-      theme_light(base_size = 16) +
-      aes(color=Change) + 
-      scale_color_manual(values=newColors) +
-    
+      theme_light(base_size = 16)
+    if (input$cat_color != TRUE) {
+      p <- p + aes(color=Change) + scale_color_manual(values=newColors) +
       NULL
+    } else    {  p <- p + aes(color=Category) + scale_color_manual(values=Okabe_Ito) }
+  
+      
     
     if (input$dark) {p <- p+ theme_light_dark_bg(base_size = 16)}
     
     
     #Indicate cut-offs with dashed lines
-    if (input$direction !="decreased")  p <- p + geom_vline(xintercept = input$fc_cutoff[2], linetype="dashed", color=line_color)
-    if (input$direction !="increased")  p <- p + geom_vline(xintercept = input$fc_cutoff[1], linetype="dashed", color=line_color)
+    #Indicate cut-offs with dashed lines
+    if (input$direction =="increased" || input$direction == 'significant')  p <- p + geom_vline(xintercept = input$fc_cutoff[2], linetype="dashed", color=line_color)
+    if (input$direction =="decreased" || input$direction == 'significant')  p <- p + geom_vline(xintercept = input$fc_cutoff[1], linetype="dashed", color=line_color)
     
-    p <- p + geom_hline(yintercept = input$p_cutoff, linetype="dashed", color=line_color) 
+    if (input$direction != 'all') {
+      p <- p + geom_hline(yintercept = input$p_cutoff, linetype="dashed", color=line_color) 
+    }
     
+
     # if log-scale checked specified
     if (input$scale_log_10)
       p <- p + scale_y_log10() 
@@ -1298,6 +1352,9 @@ output$coolplot <- renderPlot(width = width, height = height,{
           box.padding = unit(0.9, "lines"),
           point.padding = unit(.3+input$pointSize*0.1, "lines"),show.legend=F
         )
+      # p <-  p + geom_point(data=df_top() %>% filter(Change=='Unchanged'), aes(x=`Fold change (log2)`,y=`Significance`), shape=16,color=newColors[4], size=(input$pointSize))
+      p <-  p + geom_point(data=df_user(), aes(x=`Fold change (log2)`,y=`Significance`), shape=16,color=newColors[4], size=(input$pointSize))
+      
       
     }
     # 
