@@ -33,8 +33,12 @@ library(shinycssloaders)
 library(readxl)
 library(DT)
 library(RCurl)
+library(ggiraph)
+library(glue)
 
 source("themes.R")
+
+
 
 #df_example <- read.csv("Data-Vulcano-plot.csv", na.strings = "")
 df_example_cdc42 <- read.csv("elife-45916-Cdc42QL_data.csv", na.strings = "")
@@ -214,7 +218,7 @@ ui <- fluidPage(
           
           
           conditionalPanel(
-            condition = "input.tabs=='iPlot'",h4("iPlot")
+            condition = "input.tabs=='iPlot'",h4("iPlot setting")
           ),
               conditionalPanel(
                   condition = "input.tabs=='Data'",
@@ -374,7 +378,10 @@ ui <- fluidPage(
                             
                             
                               ),
-                    # tabPanel("iPlot", h4("iPlot"), plotlyOutput("out_plotly")),
+                    tabPanel("iPlot", h2("interactive Plot"),
+                             h4('ggirafe plot'),
+                             girafeOutput("iplot", height="600"),
+                             NULL),
 
                     tabPanel("About", includeHTML("about.html"))
                     )
@@ -1110,7 +1117,7 @@ plot_data <- reactive({
       aes(y=`Significance`) +
       aes(alpha=I(Alpha)*input$alphaInput) +
       # geom_point(alpha = input$alphaInput, size = input$pointSize, shape = 16) +
-      geom_point(size = input$pointSize, shape = 16) +
+      geom_point_interactive(size = input$pointSize, shape = 16, aes(tooltip = glue("Name: {Name}\nFold Change: {round(`Fold change (log2)`,2)}\nSignificance: {round(`Significance`,2)}"))) +
       
             
       # This needs to go here (before annotations)
@@ -1215,6 +1222,30 @@ plot_data <- reactive({
     p
     
   })
+
+
+output$iplot <- renderGirafe({
+  
+  if (input$dark) {
+    tooltip_css <- "background-color:white;color:black;padding:10px;border-radius:10px;font-family:sans-serif;font-weight:bold"
+  } else {
+    tooltip_css <- "background-color:black;color:white;padding:10px;border-radius:10px;font-family:sans-serif;font-weight:bold"
+  }
+  
+  w <- 10
+  h <- w*(input$plot_height/input$plot_width)
+  
+  x <- girafe(code = print(plot_data()),
+
+              width_svg = w, height_svg = h,
+              options = list(
+                opts_hover(css = "fill:#FF3333;stroke:black;cursor:pointer;", reactive = TRUE),
+                opts_selection(
+                  type = "multiple", css = "fill:#FF3333;stroke:black;"),
+                opts_tooltip(css= tooltip_css,offy = -40, opacity = .9)
+              ))
+  x
+})
 
   
     ##### Render the plot ############
