@@ -218,7 +218,8 @@ ui <- fluidPage(
           
           
           conditionalPanel(
-            condition = "input.tabs=='iPlot'",h4("iPlot setting")
+            condition = "input.tabs=='iPlot'",h4("iPlot setting"),
+            verbatimTextOutput("console")
           ),
               conditionalPanel(
                   condition = "input.tabs=='Data'",
@@ -888,7 +889,7 @@ observeEvent(input$settings_copy , {
     df <- as.data.frame(df_filtered())
     
     #select based on text input
-    usr_selection <- input$user_gene_list
+    usr_selection <- c(input$user_gene_list,input$iplot_selected)
     df_selected_by_name <- df %>% filter(Name %in% usr_selection)    
 
     
@@ -908,6 +909,12 @@ observeEvent(input$settings_copy , {
 
 
   })
+  
+  observeEvent( input$iplot_selected,{
+    genelist.selected <<- c(input$user_gene_list,input$iplot_selected)
+    updateSelectizeInput(session, "user_gene_list", selected = genelist.selected)
+  })
+  
   
   ################ LOG TRANSFORM DATA #########
 # df_transformed <- reactive({     
@@ -1117,7 +1124,7 @@ plot_data <- reactive({
       aes(y=`Significance`) +
       aes(alpha=I(Alpha)*input$alphaInput) +
       # geom_point(alpha = input$alphaInput, size = input$pointSize, shape = 16) +
-      geom_point_interactive(size = input$pointSize, shape = 16, aes(tooltip = glue("Name: {Name}\nFold Change: {round(`Fold change (log2)`,2)}\nSignificance: {round(`Significance`,2)}"))) +
+      geom_point_interactive(size = input$pointSize, shape = 16, aes(data_id = Name, tooltip = glue("Name: {Name}\nFold Change: {round(`Fold change (log2)`,2)}\nSignificance: {round(`Significance`,2)}"))) +
       
             
       # This needs to go here (before annotations)
@@ -1247,6 +1254,14 @@ output$iplot <- renderGirafe({
   x
 })
 
+
+selected_state <- reactive({
+  input$iplot_selected
+})
+output$console <- renderPrint({
+  # input$iplot_hovered
+  input$iplot_selected
+})
   
     ##### Render the plot ############
 
