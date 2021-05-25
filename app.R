@@ -911,8 +911,27 @@ observeEvent(input$settings_copy , {
   })
   
   observeEvent( input$iplot_selected,{
-    genelist.selected <<- c(input$user_gene_list,input$iplot_selected)
-    updateSelectizeInput(session, "user_gene_list", selected = genelist.selected)
+    
+    #If selected items are new, add them
+    if (length(intersect(input$iplot_selected,input$user_gene_list))==0) {
+        genelist.selected <<- c(input$user_gene_list,input$iplot_selected)
+        updateSelectizeInput(session, "user_gene_list", selected = genelist.selected)
+    #if not, invert
+    } else {
+
+      common <- intersect(input$user_gene_list,input$iplot_selected)
+      
+      observe({print(common)})
+      
+      combined <- union(input$user_gene_list,input$iplot_selected)
+      
+      genelist.selected <<- combined[! combined %in% common]
+      updateSelectizeInput(session, "user_gene_list", selected = genelist.selected)
+      
+    }
+
+    
+    
   })
   
   
