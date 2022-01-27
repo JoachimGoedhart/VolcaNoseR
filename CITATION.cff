@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+preferred-citation:
+  type: article
+  authors:
+  - given-names: Joachim
+    family-names: Goedhart
+    email: j.goedhart@uva.nl
+    affiliation: SILS - UvA
+    orcid: 'https://orcid.org/0000-0002-0630-3825'
+      - given-names: Martijn
+    family-names: Luijsterburg
+    orcid: 'https://orcid.org/0000-0001-5796-6541'
+  doi: '10.1038/s41598-020-76603-3'
+  journal: "Scientific Reports"
+  start: 20560
+  volume: 10
+  year: 2020
+  title: "VolcaNoseR is a web app for creating, exploring, labeling and sharing volcano plots"
