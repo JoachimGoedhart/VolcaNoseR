@@ -25,16 +25,17 @@ options(shiny.maxRequestSize=10*1024^2)
 #Load necessary packages
 
 library(shiny)
-library(ggplot2)
-library(magrittr)
-library(dplyr)
+library(tidyverse)
 library(ggrepel)
 library(shinycssloaders)
-library(readxl)
 library(DT)
 library(RCurl)
+library(ggiraph)
+library(htmlwidgets)
 
 source("themes.R")
+
+
 
 #df_example <- read.csv("Data-Vulcano-plot.csv", na.strings = "")
 df_example_cdc42 <- read.csv("elife-45916-Cdc42QL_data.csv", na.strings = "")
@@ -49,7 +50,9 @@ vals <- reactiveValues(count=0)
 
 # Define UI
 ui <- fluidPage(
-   
+  #Required for proper formatting of the font of the girafeOutput
+  tags$head(tags$style(type="text/css", "text {font-family: sans-serif}")),
+  
    # Application title
    titlePanel("VolcaNoseR - Exploring volcano plots"),
    
@@ -57,7 +60,7 @@ ui <- fluidPage(
    sidebarLayout(
       sidebarPanel(width=3,
           conditionalPanel(
-            condition = "input.tabs=='Plot'",
+            condition = "input.tabs=='Plot' || input.tabs=='iPlot'",
 
             
             # h3("Select Geom(etry)"),
@@ -73,8 +76,8 @@ ui <- fluidPage(
 
             # hr(),
             h4("Selection & Annotation of hits"),
-            sliderInput("fc_cutoff", "Fold Change threshold:", -5, 5, step=0.1, value = c(-1.5,1.5)),
-            sliderInput("p_cutoff", "Significance threshold:", 0, 5, step=0.1, value = 2),
+            textInput("fc_cutoff", "Fold Change threshold (min,max):", value = "-1.5,1.5"),
+            numericInput("p_cutoff", "Significance threshold:", value = 2),
             selectInput("direction", label="Use thresholds to filter hits:", choices = list("Ignore thresholds"="all", "Changed (and significant)"="significant","Increased (and significant)"="increased", "Decreased (and significant)"="decreased"), selected ="significant"),
             
             selectInput("criterion", label="Criterion for ranking hits:", choices = list("Manhattan distance"="manh", "Euclidean distance"="euclid","Fold change"="fc","Significance"="sig"), selected ="manh"),
@@ -214,8 +217,7 @@ ui <- fluidPage(
           
           
           conditionalPanel(
-            condition = "input.tabs=='iPlot'",h4("iPlot")
-          ),
+            condition = "input.tabs=='iPlot'", NULL),
               conditionalPanel(
                   condition = "input.tabs=='Data'",
               h4("Data upload"),
@@ -371,11 +373,14 @@ ui <- fluidPage(
                               condition = "input.show_table == true",
                               br(),h3("Top hits (based on distance from origin)"), withSpinner(dataTableOutput('toptableDT')))
                             
-                            
-                            
                               ),
-                    # tabPanel("iPlot", h4("iPlot"), plotlyOutput("out_plotly")),
+                    tabPanel("iPlot", h3("Volcano Plot"),
+                             div(downloadButton("downloadHTML", "Download html file"),
+                             girafeOutput("iplot", height="600", width="800"), style = "float:left"),
 
+                             NULL),
+
+                             
                     tabPanel("About", includeHTML("about.html"))
                     )
         
@@ -386,6 +391,40 @@ ui <- fluidPage(
 ) #Close fluidPage
 
 server <- function(input, output, session) {
+  
+  
+  # query_modal <- modalDialog(
+  #   title = HTML("If this version does not run correctly, you may try these mirrors:
+  #   <a href='https://huygens.science.uva.nl/VolcaNoseR2/'>https://huygens.science.uva.nl/VolcaNoseR2/</a></br>
+  #   <a href='https://goedhart.shinyapps.io/VolcaNoseR/'>https://goedhart.shinyapps.io/VolcaNoseR/</a>"),
+  #   easyClose = T,
+  #   footer = tagList(
+  #     'Dismiss with <escape> key or clicking outside of the window'
+  #   )
+  # )
+  # 
+  
+  query_modal <- modalDialog(
+    title = HTML("This version has improved support for interactive graphics on the 'iPlot' tab:
+    <ul>
+    <li>Point-and-click to (de)select hits manually</li>
+    <li>Lasso tool for selecting multiple hits at once</li>
+    <li>Option to download an interactive version of the plot as html</li>
+    <li>Improved hovering when using multiple screens</li>
+    </ul>
+    </br>
+    Any feedback on how the iPlot version compares to the original output (on the Plot tab) would be appreciated!</br>"),
+    easyClose = T,
+    footer = tagList(
+      'Dismiss with <escape> key or clicking outside of the window'
+    )
+  )
+  
+  
+  
+  # Show the model on start up ...
+  showModal(query_modal)
+  
   
   # Session variable - initialize defaults
   genelist.selected <- ""
@@ -467,7 +506,7 @@ df_upload <- reactive({
             
             # names <- excel_sheets(path = input$upload$datapath)
             # updateSelectInput(session, "sheet_names", choices = names)
-            data <- read_excel(file_in$datapath, sheet = n , na = c("",".","NA", "NaN", "#N/A", "#VALUE!"))
+            data <- readxl::read_excel(file_in$datapath, sheet = n , na = c("",".","NA", "NaN", "#N/A", "#VALUE!", "#DIV/0!"))
           } 
           
         # })
@@ -620,10 +659,16 @@ observe({
     presets_vis <- unlist(strsplit(presets_vis,";"))
     observe(print((presets_vis)))
     
+    fc_cutoff <- as.numeric(strsplit(presets_vis[3],",")[[1]])
+    if (length(fc_cutoff)<2) {
+      fc_cutoff[2] <- fc_cutoff[1]
+      min_max <- paste(fc_cutoff,collapse = ",")
+    } else {min_max <- fc_cutoff}
+    
     updateSliderInput(session, "pointSize", value = presets_vis[1])
     updateSliderInput(session, "alphaInput", value = presets_vis[2])
-    updateSliderInput(session, "fc_cutoff", value = unlist(strsplit(presets_vis[3],",")))
-    updateSliderInput(session, "p_cutoff", value = presets_vis[4])
+    updateTextInput(session, "fc_cutoff", value = min_max)
+    updateNumericInput(session, "p_cutoff", value = presets_vis[4])
     updateSelectInput(session, "direction", selected = presets_vis[5])
     updateSelectInput(session, "criterion", selected = presets_vis[6])
     
@@ -868,7 +913,7 @@ observeEvent(input$settings_copy , {
         df_out <- bind_rows(df_out,df_user()) %>% distinct(Name, .keep_all = TRUE)
         # }
         
-        
+        df_out$Change <- factor(df_out$Change, levels=c("Unchanged","Increased","Decreased", "Selected"))
         
         observe({print(df_out)})
         return(df_out)
@@ -881,10 +926,9 @@ observeEvent(input$settings_copy , {
     df <- as.data.frame(df_filtered())
     
     #select based on text input
-    usr_selection <- input$user_gene_list
+    usr_selection <- c(input$user_gene_list,input$iplot_selected)
     df_selected_by_name <- df %>% filter(Name %in% usr_selection)    
 
-    
     # clicked <- nearPoints(df, input$clicked)
     # observe({print(clicked)})
     
@@ -896,11 +940,32 @@ observeEvent(input$settings_copy , {
       df_selected_by_tab <- df %>% slice(table_selection)
       df_selected_by_name <- df_selected_by_name %>% bind_rows(df_selected_by_tab)
     }
+    
 
     return(df_selected_by_name)
 
 
   })
+  
+  observeEvent( input$iplot_selected,{
+    
+    #If selected items are new, add them
+    if (length(intersect(input$iplot_selected,input$user_gene_list))==0) {
+        genelist.selected <<- c(input$user_gene_list,input$iplot_selected)
+        updateSelectizeInput(session, "user_gene_list", selected = genelist.selected)
+    #if not, invert selection
+    } else {
+      common <- intersect(input$user_gene_list,input$iplot_selected)
+      combined <- union(input$user_gene_list,input$iplot_selected)
+      genelist.selected <<- combined[! combined %in% common]
+      updateSelectizeInput(session, "user_gene_list", selected = genelist.selected)
+      
+    }
+
+    
+    
+  })
+  
   
   ################ LOG TRANSFORM DATA #########
 # df_transformed <- reactive({     
@@ -974,9 +1039,11 @@ df_filtered <- reactive({
     #Update the gene list for user selection
     updateSelectizeInput(session, "user_gene_list", choices = koos$Name, selected = genelist.selected)
     }
-      
-    foldchange_min=input$fc_cutoff[1]
-    foldchange_max=input$fc_cutoff[2]
+    
+    fc_cutoff <- as.numeric(strsplit(input$fc_cutoff,",")[[1]])
+    
+    foldchange_min=fc_cutoff[1]
+    foldchange_max=fc_cutoff[2]
 
     pvalue_tr=input$p_cutoff
 
@@ -1006,16 +1073,14 @@ df_filtered <- reactive({
         
     }
 
-    koos <- koos %>%mutate(
+    koos <- koos %>% mutate(
       Alpha = case_when(
         `Change` == "Decreased" ~ 1.0,
         `Change` == "Increased" ~ 1.0,
         `Change` == "NA" ~ 1.0,        
         TRUE ~ 0.5)
     )
-    
-    
-    observe({print(head(koos))})
+
     return(koos)
     #Replace space and dot of header names by underscore
     # df <- df %>%  
@@ -1030,7 +1095,7 @@ output$toptableDT <- renderDataTable(
     df_top(),
     extensions = c('Buttons'),
     rownames = FALSE,
-    options = list(dom = 'Blfrtip', buttons = c('copy', 'csv','excel', 'pdf'), autoWidth = FALSE, lengthMenu = c(20, 50, 100)),
+    options = list(dom = 'Blfrtip', buttons = c('copy', 'csv','excel', 'pdf'), autoWidth = FALSE, lengthMenu = c(20, 100, 1000)),
     editable = FALSE,selection = 'none'
   )
   
@@ -1061,7 +1126,7 @@ plot_data <- reactive({
     
     df <- as.data.frame(df_filtered())
     #Convert 'Change' to a factor to keep this order, necessary for getting the colors right
-    df$Change <- factor(df$Change, levels=c("Unchanged","Increased","Decreased"))
+    df$Change <- factor(df$Change, levels=c("Unchanged","Increased","Decreased", "Selected"))
     
     ########## Determine color use #############
     if (input$adjustcolors == 1 && input$dark) {
@@ -1104,31 +1169,36 @@ plot_data <- reactive({
       
     }
     
+    print(newColors)
     
     p <-  ggplot(data = df) +
       aes(x=`Fold change (log2)`) +
       aes(y=`Significance`) +
       aes(alpha=I(Alpha)*input$alphaInput) +
+    
       # geom_point(alpha = input$alphaInput, size = input$pointSize, shape = 16) +
-      geom_point(size = input$pointSize, shape = 16) +
+      geom_point_interactive(size = input$pointSize, shape = 16, aes(data_id = Name, tooltip = str_glue("Name: {Name}\nFold Change: {round(`Fold change (log2)`,2)}\nSignificance: {round(`Significance`,2)}"))) +
+ 
+      # This add a color to the user-selected datapoints
+      geom_point_interactive(data=df_user(), aes(x=`Fold change (log2)`,y=`Significance`), color=newColors[4], shape = 16, size=(input$pointSize), alpha=1)+
       
             
       # This needs to go here (before annotations)
-      theme_light(base_size = 16)
+      theme_light(base_size = 16, base_family = "sans")
     
     if (input$cat_color != TRUE) {
-      p <- p + aes(color=Change) + scale_color_manual(values=newColors) +
-        NULL
+      p <- p + aes(color=Change) + scale_color_manual(values=newColors)
+      
     } else    {  p <- p + aes(color=Category) + scale_color_manual(values=Okabe_Ito) }
     
-      NULL
     
-    if (input$dark) {p <- p+ theme_light_dark_bg(base_size = 16)}
+    if (input$dark) {p <- p+ theme_light_dark_bg(base_size = 16, base_family = "sans")}
     
-    
+    fc_cutoff <- as.numeric(strsplit(input$fc_cutoff,",")[[1]])
+      
     #Indicate cut-offs with dashed lines
-    if (input$direction =="increased" || input$direction == 'significant')  p <- p + geom_vline(xintercept = input$fc_cutoff[2], linetype="dashed", color=line_color)
-    if (input$direction =="decreased" || input$direction == 'significant')  p <- p + geom_vline(xintercept = input$fc_cutoff[1], linetype="dashed", color=line_color)
+    if (input$direction =="increased" || input$direction == 'significant')  p <- p + geom_vline(xintercept = fc_cutoff[2], linetype="dashed", color=line_color)
+    if (input$direction =="decreased" || input$direction == 'significant')  p <- p + geom_vline(xintercept = fc_cutoff[1], linetype="dashed", color=line_color)
     
     if (input$direction != 'all') {
       p <- p + geom_hline(yintercept = input$p_cutoff, linetype="dashed", color=line_color) 
@@ -1149,6 +1219,8 @@ plot_data <- reactive({
         geom_text_repel(
           data = df_top(),
           aes(label = Name),
+          alpha=1,
+          # family="mono",
           size = input$fnt_sz_cand,
           color=line_color,
           nudge_x = 0.2,
@@ -1216,241 +1288,325 @@ plot_data <- reactive({
     
   })
 
+
+output$iplot <- renderGirafe({
   
+  if (input$dark) {
+    tooltip_css <- "background-color:white;color:black;padding:10px;border-radius:10px;font-family:sans-serif;font-weight:bold"
+  } else {
+    tooltip_css <- "background-color:black;color:white;padding:10px;border-radius:10px;font-family:sans-serif;font-weight:bold"
+  }
+  
+  w <- 10
+  h <- w*(input$plot_height/input$plot_width)
+  
+  x <- girafe(code = plot(plot_data()),
+
+              width_svg = w, height_svg = h,
+              options = list(
+                opts_hover(css = "fill:#FF3333;stroke:black;cursor:pointer;", reactive = TRUE),
+                opts_selection(
+                  type = "multiple", css = "fill:#FF3333;stroke:black;"),
+                opts_tooltip(css= tooltip_css,offy = -40, opacity = .9),
+                opts_zoom(min = 1, max = 4)
+              ))
+  x
+})
+
+
+selected_state <- reactive({
+  input$iplot_selected
+})
+output$console <- renderPrint({
+  # input$iplot_hovered
+  input$iplot_selected
+})
+  
+
+####### SAVE ########
+output$downloadHTML <- downloadHandler(
+
+  filename <- function() {
+    paste("VolcaNoseR_", Sys.time(), ".html", sep = "")
+  },
+  content <- function(file) {
+    if (input$dark) {
+      tooltip_css <- "background-color:white;color:black;padding:10px;border-radius:10px;font-family:sans-serif;font-weight:bold"
+    } else {
+      tooltip_css <- "background-color:black;color:white;padding:10px;border-radius:10px;font-family:sans-serif;font-weight:bold"
+    }
+    w <- 10
+    #retain aspect ratio
+    h <- w*(input$plot_height/input$plot_width)
+    saveWidget(widget = 
+                 girafe(ggobj = plot_data(), width_svg = w, height_svg = h,
+                        options = list(
+                   opts_hover(css = "fill:#FF3333;stroke:black;cursor:pointer;", reactive = TRUE),
+                   opts_selection(
+                     type = "multiple", css = "fill:#FF3333;stroke:black;"),
+                   opts_tooltip(css= tooltip_css,offy = -40, opacity = .75),
+                   opts_zoom(min = 1, max = 4)
+                 ))
+               , file = file)
+  }
+    
+    
+    # saveWidget(file = file,
+    #            girafe(ggobj = print(plot_data()), options = list(
+    #              opts_hover_inv(css = "opacity:0.1;"),
+    #              opts_hover(css = "opacity:1.0;stroke:black;stroke-width:1;r:3pt"),
+    #              opts_tooltip(css= tooltip_css,offy = -40, opacity = .75)
+    #            ))
+    # )
+    # 
+    # print(plot_data())
+    # 
+    # dev.off()
+  # },
+  # contentType = "application/html" # MIME type of the image
+)
+
+
     ##### Render the plot ############
 
   ##### Set width and height of the plot area
   width <- reactive ({ input$plot_width })
   height <- reactive ({ input$plot_height }) 
   
-output$coolplot <- renderPlot(width = width, height = height,{
-  
-  if (input$dark) {line_color="white"} else {line_color="gray20"}
-  
-  df <- as.data.frame(df_filtered())
-  #Convert 'Change' to a factor to keep this order, necessary for getting the colors right
-  df$Change <- factor(df$Change, levels=c("Unchanged","Increased","Decreased"))
 
-
-  ########## Determine color use #############
-  if (input$adjustcolors == 1 && input$dark) {
-    newColors <- c("#505050", "#FF3333", "#0092CC")
-  } else if (input$adjustcolors == 1 && input$dark == FALSE) {
-    newColors <- c("grey", "red", "blue")
-  }
   
-  if (input$adjustcolors == 3 && input$dark) {
-    newColors <- c( "#505050", "deepskyblue", "green")
-  } else if (input$adjustcolors == 3 && input$dark == FALSE) {
-    newColors <- c("Grey80", "darkblue", "darkgreen")
-  }
-  
-  
-  if (input$adjustcolors == 4 && input$dark) {
-    newColors <- c("#505050", "#03DAC5", "#BB86FC") }
-  else if (input$adjustcolors == 4 && input$dark == FALSE)
-  { newColors <- c("grey", "turquoise4", "#9932CC")
-  # } else if (input$adjustcolors == 6) {
-  #   newColors <- Okabe_Ito
-  }
-  if (input$adjustcolors != 5) {newColors[4] <- line_color}
-  
-  
-  if (input$adjustcolors == 5) {
-    newColors <- gsub("\\s","", strsplit(input$user_color_list,",")[[1]])
-    
-    #If unsufficient colors available, repeat (fourth color is used for user-selected hits)
-    if(length(newColors) < 4) {
-      newColors<-rep(newColors,times=(round(4/length(newColors)))+1)
-    }
-    
-    
-  }
-  
-  # Remove the color for category 'increased' when absent
-  if (("Increased" %in% df$Change) == FALSE) {
-    newColors <- newColors[c(1,3,4)]
-    
-  }
-  
-  
-  ############## Adjust X-scaling if necessary ##########
-  
-  #Adjust scale if range for x (min,max) is specified
-  if (input$range_x != "" &&  input$change_scale == TRUE) {
-    rng_x <- as.numeric(strsplit(input$range_x,",")[[1]])
-    observe({ print(rng_x) })
-  } else if (input$range_x == "" ||  input$change_scale == FALSE) {
-    
-    rng_x <- c(NULL,NULL)
-  }
-  
-    
-    ############## Adjust Y-scaling if necessary ##########
-    
-    #Adjust scale if range for y (min,max) is specified
-    if (input$range_y != "" &&  input$change_scale == TRUE) {
-      rng_y <- as.numeric(strsplit(input$range_y,",")[[1]])
-    } else if (input$range_y == "" ||  input$change_scale == FALSE) {
-      
-      rng_y <- c(NULL,NULL)
-    }
-  
-
-    
-    p <-  ggplot(data = df) +
-      aes(x=`Fold change (log2)`) +
-      aes(y=`Significance`) +
-      aes(alpha=I(Alpha)*input$alphaInput) +
-      # geom_point(alpha = input$alphaInput, size = input$pointSize, shape = 16) +
-      
-      geom_point(size = input$pointSize, shape = 16) +
-      
-      
-      # This needs to go here (before annotations)
-      theme_light(base_size = 16)
-    if (input$cat_color != TRUE) {
-      p <- p + aes(color=Change) + scale_color_manual(values=newColors) +
-      NULL
-    } else    {  p <- p + aes(color=Category) + scale_color_manual(values=Okabe_Ito) }
-  
-      
-    
-    if (input$dark) {p <- p+ theme_light_dark_bg(base_size = 16)}
-    
-    
-    #Indicate cut-offs with dashed lines
-    #Indicate cut-offs with dashed lines
-    if (input$direction =="increased" || input$direction == 'significant')  p <- p + geom_vline(xintercept = input$fc_cutoff[2], linetype="dashed", color=line_color)
-    if (input$direction =="decreased" || input$direction == 'significant')  p <- p + geom_vline(xintercept = input$fc_cutoff[1], linetype="dashed", color=line_color)
-    
-    if (input$direction != 'all') {
-      p <- p + geom_hline(yintercept = input$p_cutoff, linetype="dashed", color=line_color) 
-    }
-    
-
-    # if log-scale checked specified
-    if (input$scale_log_10)
-      p <- p + scale_y_log10() 
-    
-    #remove gridlines (if selected)
-    if (input$add_grid == FALSE) {  
-      p <- p+ theme(panel.grid.major = element_blank(),
-                    panel.grid.minor = element_blank())
-    }
-
-    ########## User defined labeling     
-    if (input$hide_labels == FALSE) {
-      p <-  p + geom_point(data=df_top(), aes(x=`Fold change (log2)`,y=`Significance`), shape=1,color=line_color, size=(input$pointSize))+
-        geom_text_repel(
-          data = df_top(),
-          aes(label = Name),
-          size = input$fnt_sz_cand,
-          color=line_color,
-          nudge_x = 0.2,
-          nudge_y=0.2,
-          box.padding = unit(0.9, "lines"),
-          point.padding = unit(.3+input$pointSize*0.1, "lines"),show.legend=F
-        )
-      # p <-  p + geom_point(data=df_top() %>% filter(Change=='Unchanged'), aes(x=`Fold change (log2)`,y=`Significance`), shape=16,color=newColors[4], size=(input$pointSize))
-      p <-  p + geom_point(data=df_user(), aes(x=`Fold change (log2)`,y=`Significance`), shape=16,color=newColors[4], size=(input$pointSize))
-      
-      
-    }
-    # 
-    # ########## Top hits labeling 
-    # if (input$hide_labels == FALSE) {
-    #   p <- p + geom_text_repel(
-    #     data = df_top(),
-    #     aes(label = Name),
-    #     size = input$fnt_sz_cand,
-    #     nudge_x = 0.2,
-    #     nudge_y=-0.2,
-    #     # check_overlap = TRUE,
-    #     box.padding = unit(0.35, "lines"),
-    #     point.padding = unit(0.3+input$pointSize*0.1, "lines"),
-    #     show.legend=F
-    #   )
-    #   
-    # }
-    p <- p + coord_cartesian(xlim=c(rng_x[1],rng_x[2]),ylim=c(rng_y[1],rng_y[2]))
-    #### If selected, rotate plot 90 degrees CW ####
-    if (input$rotate_plot == TRUE) { p <- p + coord_flip(xlim=c(rng_x[1],rng_x[2]),ylim=c(rng_y[1],rng_y[2]))}
-    ########## Do some formatting of the lay-out ##########
-    
-    
-    
-    # if title specified
-    if (input$add_title == TRUE) {
-      #Add line break to generate some space
-      title <- paste(input$title, "\n",sep="")
-      p <- p + labs(title = title)
-    } else if (input$sheet !=" ") {
-      title <- paste(input$sheet, "\n",sep="")
-      # observe({print('yay')})
-      p <- p + labs(title = title)
-    }
-    
-    # # if labels specified
-    if (input$label_axes)
-      {p <- p + labs(x = input$lab_x, y = input$lab_y)}
-    else {
-      p <- p + labs(x=bquote('Fold Change ('*Log[2]*')'), y=bquote('Significance ('*-Log[10]*')'))
-    }
-    
-    # # if font size is adjusted
-    if (input$adj_fnt_sz) {
-      p <- p + theme(axis.text = element_text(size=input$fnt_sz_ax))
-      p <- p + theme(axis.title = element_text(size=input$fnt_sz_labs))
-      p <- p + theme(plot.title = element_text(size=input$fnt_sz_title))
-    }
-    
-    #remove legend (if selected)
-    if (input$add_legend == FALSE) {  
-      p <- p + theme(legend.position="none")
-    }
-
-    p
+  output$coolplot <- renderPlot(width = width, height = height, {
+    plot(plot_data())
   })
   
-###### From: https://gitlab.com/snippets/16220 ########
-output$hover_info <- renderUI({
-  df <- as.data.frame(df_filtered())
-  
-  hover <- input$plot_hover
-  point <- nearPoints(df, hover, threshold = 10, maxpoints = 1, addDist = FALSE)
-  if (nrow(point) == 0) return(NULL)
-  
-  # calculate point position INSIDE the image as percent of total dimensions
-  # from left (horizontal) and from top (vertical)
-  left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
-  top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
-  
-  # calculate distance from left and bottom side of the picture in pixels
-  left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
-  top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
-  
-  # create style property fot tooltip
-  # background color is set so tooltip is a bit transparent
-  # z-index is set so we are sure are tooltip will be on top
-  style <- paste0("position:absolute;
-                  padding: 5px;
-                  z-index:100; background-color: rgba(200, 200, 245, 0.65); ",
-                  "left:", left_px + 20, "px; top:", top_px + 32, "px;")
-  
-  # actual tooltip created as wellPanel
-  wellPanel(
-    style = style,
-    p(HTML(paste0("<b> Name: </b>", point$Name, "<br/>",
-                  "<b> Fold change: </b>", round(point[1],2), "<br/>",
-                  "<b> Significance: </b>", round(point[2],2), "<br/>",
-                  # "<b> Number: </b>", rownames(point), "<br/>",
-                  # top_px,
-                  NULL
-    )
-    ))
-  )
-})
+# output$coolplot <- renderPlot(width = width, height = height,{
+#   
+#   if (input$dark) {line_color="white"} else {line_color="gray20"}
+#   
+#   df <- as.data.frame(df_filtered())
+#   #Convert 'Change' to a factor to keep this order, necessary for getting the colors right
+#   df$Change <- factor(df$Change, levels=c("Unchanged","Increased","Decreased"))
+# 
+# 
+#   ########## Determine color use #############
+#   if (input$adjustcolors == 1 && input$dark) {
+#     newColors <- c("#505050", "#FF3333", "#0092CC")
+#   } else if (input$adjustcolors == 1 && input$dark == FALSE) {
+#     newColors <- c("grey", "red", "blue")
+#   }
+#   
+#   if (input$adjustcolors == 3 && input$dark) {
+#     newColors <- c( "#505050", "deepskyblue", "green")
+#   } else if (input$adjustcolors == 3 && input$dark == FALSE) {
+#     newColors <- c("Grey80", "darkblue", "darkgreen")
+#   }
+#   
+#   
+#   if (input$adjustcolors == 4 && input$dark) {
+#     newColors <- c("#505050", "#03DAC5", "#BB86FC") }
+#   else if (input$adjustcolors == 4 && input$dark == FALSE)
+#   { newColors <- c("grey", "turquoise4", "#9932CC")
+#   # } else if (input$adjustcolors == 6) {
+#   #   newColors <- Okabe_Ito
+#   }
+#   if (input$adjustcolors != 5) {newColors[4] <- line_color}
+#   
+#   
+#   if (input$adjustcolors == 5) {
+#     newColors <- gsub("\\s","", strsplit(input$user_color_list,",")[[1]])
+#     
+#     #If unsufficient colors available, repeat (fourth color is used for user-selected hits)
+#     if(length(newColors) < 4) {
+#       newColors<-rep(newColors,times=(round(4/length(newColors)))+1)
+#     }
+#     
+#     
+#   }
+#   
+#   # Remove the color for category 'increased' when absent
+#   if (("Increased" %in% df$Change) == FALSE) {
+#     newColors <- newColors[c(1,3,4)]
+#     
+#   }
+#   
+#   
+#   ############## Adjust X-scaling if necessary ##########
+#   
+#   #Adjust scale if range for x (min,max) is specified
+#   if (input$range_x != "" &&  input$change_scale == TRUE) {
+#     rng_x <- as.numeric(strsplit(input$range_x,",")[[1]])
+#     observe({ print(rng_x) })
+#   } else if (input$range_x == "" ||  input$change_scale == FALSE) {
+#     
+#     rng_x <- c(NULL,NULL)
+#   }
+#   
+#     
+#     ############## Adjust Y-scaling if necessary ##########
+#     
+#     #Adjust scale if range for y (min,max) is specified
+#     if (input$range_y != "" &&  input$change_scale == TRUE) {
+#       rng_y <- as.numeric(strsplit(input$range_y,",")[[1]])
+#     } else if (input$range_y == "" ||  input$change_scale == FALSE) {
+#       
+#       rng_y <- c(NULL,NULL)
+#     }
+#   
+# 
+#     
+#     p <-  ggplot(data = df) +
+#       aes(x=`Fold change (log2)`) +
+#       aes(y=`Significance`) +
+#       aes(alpha=I(Alpha)*input$alphaInput) +
+#       # geom_point(alpha = input$alphaInput, size = input$pointSize, shape = 16) +
+#       
+#       geom_point(size = input$pointSize, shape = 16) +
+#       
+#       
+#       # This needs to go here (before annotations)
+#       theme_light(base_size = 16, base_family = "sans")
+#     if (input$cat_color != TRUE) {
+#       p <- p + aes(color=Change) + scale_color_manual(values=newColors) +
+#       NULL
+#     } else    {  p <- p + aes(color=Category) + scale_color_manual(values=Okabe_Ito) }
+#   
+#       
+#     
+#     if (input$dark) {p <- p+ theme_light_dark_bg(base_size = 16, base_family = "sans")}
+#     
+#     fc_cutoff <- as.numeric(strsplit(input$fc_cutoff,",")[[1]])
+#     
+#     #Indicate cut-offs with dashed lines
+#     if (input$direction =="increased" || input$direction == 'significant')  p <- p + geom_vline(xintercept = fc_cutoff[2], linetype="dashed", color=line_color)
+#     if (input$direction =="decreased" || input$direction == 'significant')  p <- p + geom_vline(xintercept = fc_cutoff[1], linetype="dashed", color=line_color)
+#     
+#     if (input$direction != 'all') {
+#       p <- p + geom_hline(yintercept = input$p_cutoff, linetype="dashed", color=line_color) 
+#     }
+#     
+# 
+#     # if log-scale checked specified
+#     if (input$scale_log_10)
+#       p <- p + scale_y_log10() 
+#     
+#     #remove gridlines (if selected)
+#     if (input$add_grid == FALSE) {  
+#       p <- p+ theme(panel.grid.major = element_blank(),
+#                     panel.grid.minor = element_blank())
+#     }
+# 
+#     ########## User defined labeling     
+#     if (input$hide_labels == FALSE) {
+#       p <-  p + geom_point(data=df_top(), aes(x=`Fold change (log2)`,y=`Significance`), shape=1,color=line_color, size=(input$pointSize))+
+#         geom_text_repel(
+#           data = df_top(),
+#           aes(label = Name),
+#           size = input$fnt_sz_cand,
+#           color=line_color,
+#           nudge_x = 0.2,
+#           nudge_y=0.2,
+#           box.padding = unit(0.9, "lines"),
+#           point.padding = unit(.3+input$pointSize*0.1, "lines"),show.legend=F
+#         )
+#       # p <-  p + geom_point(data=df_top() %>% filter(Change=='Unchanged'), aes(x=`Fold change (log2)`,y=`Significance`), shape=16,color=newColors[4], size=(input$pointSize))
+#       p <-  p + geom_point(data=df_user(), aes(x=`Fold change (log2)`,y=`Significance`), shape=16,color=newColors[4], size=(input$pointSize))
+#       
+#       
+#     }
+#     # 
+#     # ########## Top hits labeling 
+#     # if (input$hide_labels == FALSE) {
+#     #   p <- p + geom_text_repel(
+#     #     data = df_top(),
+#     #     aes(label = Name),
+#     #     size = input$fnt_sz_cand,
+#     #     nudge_x = 0.2,
+#     #     nudge_y=-0.2,
+#     #     # check_overlap = TRUE,
+#     #     box.padding = unit(0.35, "lines"),
+#     #     point.padding = unit(0.3+input$pointSize*0.1, "lines"),
+#     #     show.legend=F
+#     #   )
+#     #   
+#     # }
+#     p <- p + coord_cartesian(xlim=c(rng_x[1],rng_x[2]),ylim=c(rng_y[1],rng_y[2]))
+#     #### If selected, rotate plot 90 degrees CW ####
+#     if (input$rotate_plot == TRUE) { p <- p + coord_flip(xlim=c(rng_x[1],rng_x[2]),ylim=c(rng_y[1],rng_y[2]))}
+#     ########## Do some formatting of the lay-out ##########
+#     
+#     
+#     
+#     # if title specified
+#     if (input$add_title == TRUE) {
+#       #Add line break to generate some space
+#       title <- paste(input$title, "\n",sep="")
+#       p <- p + labs(title = title)
+#     } else if (input$sheet !=" ") {
+#       title <- paste(input$sheet, "\n",sep="")
+#       # observe({print('yay')})
+#       p <- p + labs(title = title)
+#     }
+#     
+#     # # if labels specified
+#     if (input$label_axes)
+#       {p <- p + labs(x = input$lab_x, y = input$lab_y)}
+#     else {
+#       p <- p + labs(x=bquote('Fold Change ('*Log[2]*')'), y=bquote('Significance ('*-Log[10]*')'))
+#     }
+#     
+#     # # if font size is adjusted
+#     if (input$adj_fnt_sz) {
+#       p <- p + theme(axis.text = element_text(size=input$fnt_sz_ax))
+#       p <- p + theme(axis.title = element_text(size=input$fnt_sz_labs))
+#       p <- p + theme(plot.title = element_text(size=input$fnt_sz_title))
+#     }
+#     
+#     #remove legend (if selected)
+#     if (input$add_legend == FALSE) {  
+#       p <- p + theme(legend.position="none")
+#     }
+# 
+#     p
+#   })
+#   
+# ###### From: https://gitlab.com/snippets/16220 ########
+# output$hover_info <- renderUI({
+#   df <- as.data.frame(df_filtered())
+#   
+#   hover <- input$plot_hover
+#   point <- nearPoints(df, hover, threshold = 10, maxpoints = 1, addDist = FALSE)
+#   if (nrow(point) == 0) return(NULL)
+#   
+#   # calculate point position INSIDE the image as percent of total dimensions
+#   # from left (horizontal) and from top (vertical)
+#   left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
+#   top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
+#   
+#   # calculate distance from left and bottom side of the picture in pixels
+#   left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
+#   top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
+#   
+#   # create style property fot tooltip
+#   # background color is set so tooltip is a bit transparent
+#   # z-index is set so we are sure are tooltip will be on top
+#   style <- paste0("position:absolute;
+#                   padding: 5px;
+#                   z-index:100; background-color: rgba(200, 200, 245, 0.65); ",
+#                   "left:", left_px + 20, "px; top:", top_px + 32, "px;")
+#   
+#   # actual tooltip created as wellPanel
+#   wellPanel(
+#     style = style,
+#     p(HTML(paste0("<b> Name: </b>", point$Name, "<br/>",
+#                   "<b> Fold change: </b>", round(point[1],2), "<br/>",
+#                   "<b> Significance: </b>", round(point[2],2), "<br/>",
+#                   # "<b> Number: </b>", rownames(point), "<br/>",
+#                   # top_px,
+#                   NULL
+#     )
+#     ))
+#   )
+# })
 
   
   ######### DEFINE DOWNLOAD BUTTONS FOR ORDINARY PLOT ###########
