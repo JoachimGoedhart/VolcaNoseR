@@ -8,6 +8,10 @@ The web-tool runs from a shiny server, and can be accessed at:
 
 o [https://huygens.science.uva.nl/VolcaNoseR/](https://huygens.science.uva.nl/VolcaNoseR/)
 
+o [https://huygens.science.uva.nl/VolcaNoseR2/](https://huygens.science.uva.nl/VolcaNoseR2/)
+
+o [https://amsterdamstudygroup.shinyapps.io/VolcaNoseR/](https://amsterdamstudygroup.shinyapps.io/VolcaNoseR/)
+
 o [https://goedhart.shinyapps.io/VolcaNoseR/](https://goedhart.shinyapps.io/VolcaNoseR/), while bandwidth lasts
 
 Alternatively, the app can run from R/Rstudio and this is perhaps the best option for loading large files. See instructions below
