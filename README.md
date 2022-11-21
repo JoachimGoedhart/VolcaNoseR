@@ -21,7 +21,7 @@ Note that the app depends on several R packages that need to be installed (shiny
 
 Run this command in R/Rstudio to download and install all the packages (only needs to be done once):
 ```
-install.packages("shiny", "tidyverse", "ggrepel", "DT", "shinycssloaders", "RCurl", "readxl", "ggiraph")
+install.packages("shiny", "tidyverse", "ggrepel", "DT", "shinycssloaders", "RCurl", "readxl", "ggiraph", "htmlwidgets")
 ```
 o The first option is running it directly from Github. In the command line (in R or Rstudio) type:
 ```
